@@ -22,10 +22,33 @@ final String generationString = """ 661   2023-06-01 08:10:47
  678   2023-07-14 11:46:59   
  679   2023-07-15 10:32:58   
  680   2023-07-15 22:40:41   
- 681   2023-07-16 11:35:46
-""";
+ 681   2023-07-16 11:35:46""";
 
 final String generationStringWithCurrent = "$generationString   (current)";
+
+final String generationStringWithCurrentInTheMiddle =
+    """ 661   2023-06-01 08:10:47   
+ 662   2023-06-05 21:35:55   
+ 663   2023-06-06 13:17:20   
+ 664   2023-06-06 18:29:49   
+ 665   2023-06-07 07:57:08   
+ 666   2023-06-08 07:42:25   
+ 667   2023-06-13 22:13:13   
+ 668   2023-06-14 09:03:01   
+ 669   2023-06-15 12:21:00   
+ 670   2023-06-16 09:59:25   
+ 671   2023-06-19 18:54:32   (current)
+ 672   2023-06-20 07:09:24   
+ 673   2023-07-03 08:56:50   
+ 674   2023-07-05 18:26:11   
+ 675   2023-07-10 08:56:27   
+ 676   2023-07-12 23:32:24   
+ 677   2023-07-13 12:55:34   
+ 678   2023-07-14 11:46:59   
+ 679   2023-07-15 10:32:58   
+ 680   2023-07-15 22:40:41   
+ 681   2023-07-16 11:35:46
+""";
 
 final List<janitor.Generation> generationList = [
   janitor.Generation(661, DateTime(2023, 6, 1, 8, 10, 47)),
@@ -48,7 +71,7 @@ final List<janitor.Generation> generationList = [
   janitor.Generation(678, DateTime(2023, 7, 14, 11, 46, 59)),
   janitor.Generation(679, DateTime(2023, 7, 15, 10, 32, 58)),
   janitor.Generation(680, DateTime(2023, 7, 15, 22, 40, 41)),
-  janitor.Generation(681, DateTime(2023, 7, 16, 11, 35, 46))
+  janitor.Generation(681, DateTime(2023, 7, 16, 11, 35, 46), current: true)
 ];
 
 void main() {
@@ -63,17 +86,21 @@ void main() {
     });
 
     test('multiple', () {
-      expect(janitor.parseGenerations(generationString), generationList);
+      expect(janitor.parseGenerations(generationString),
+          generationList.map((g) => g.copyWith(current: false)).toList());
     });
 
     test('single with current', () {
-      expect(janitor.parseGenerations(' 681   2023-07-16 11:35:46   (current)'),
-          [janitor.Generation(681, DateTime(2023, 7, 16, 11, 35, 46))]);
+      expect(
+          janitor.parseGenerations(' 681   2023-07-16 11:35:46   (current)'), [
+        janitor.Generation(681, DateTime(2023, 7, 16, 11, 35, 46),
+            current: true)
+      ]);
     });
 
     test('multiple with current', () {
-      expect(janitor.parseGenerations(generationStringWithCurrent),
-          generationList);
+      expect((janitor.parseGenerations(generationStringWithCurrent)),
+          (generationList));
     });
   });
 
@@ -130,18 +157,18 @@ void main() {
     Map<int, Map<DateTime, List<janitor.Generation>>> genLists = {
       1: {
         DateTime(2023, 6, 1): <janitor.Generation>[],
-        DateTime(2023, 7, 1): generationList.sublist(0,11),
-        DateTime(2023, 7, 15, 12, 0): generationList.sublist(0,18)
+        DateTime(2023, 7, 1): generationList.sublist(0, 11),
+        DateTime(2023, 7, 15, 12, 0): generationList.sublist(0, 18)
       },
       5: {
         DateTime(2023, 6, 1): <janitor.Generation>[],
-        DateTime(2023, 7, 1): generationList.sublist(0,11),
-        DateTime(2023, 7, 15, 12, 0): generationList.sublist(0,16)
+        DateTime(2023, 7, 1): generationList.sublist(0, 11),
+        DateTime(2023, 7, 15, 12, 0): generationList.sublist(0, 16)
       },
       10: {
         DateTime(2023, 6, 1): <janitor.Generation>[],
         DateTime(2023, 7, 1): generationList.sublist(0, 11),
-        DateTime(2023, 7, 15, 12, 0): generationList.sublist(0,11)
+        DateTime(2023, 7, 15, 12, 0): generationList.sublist(0, 11)
       },
       l: {
         DateTime(2023, 6, 1): <janitor.Generation>[],
@@ -169,9 +196,20 @@ void main() {
         test("N = $n; date = $date", () {
           List<janitor.Generation> expected = genLists[n]![date]!;
 
-          expect(janitor.generationsToDelete(generationList, n, date), expected);
+          expect(
+              janitor.generationsToDelete(generationList, n, date), expected);
         });
       }
     }
+
+    test('the current generation remains', () {
+      final List<janitor.Generation> gens =
+          janitor.parseGenerations(generationStringWithCurrentInTheMiddle);
+
+      expect(
+          janitor.generationsToDelete(gens, 0, DateTime.now()),
+          predicate((List<janitor.Generation> toDelete) =>
+              toDelete.where((gen) => gen.current).isEmpty));
+    });
   });
 }
