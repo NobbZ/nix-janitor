@@ -1,0 +1,18 @@
+[package]
+name = "janitor"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+
+[[bin]]
+name = "janitor"
+
+[dependencies]
+chrono = "0.4.26"
+color-eyre = "0.6.2"
+eyre = "0.6.8"
+
+[dev-dependencies]
+lazy_static = "1.4.0"
+rstest = "0.18.1"
