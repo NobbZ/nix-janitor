@@ -33,14 +33,50 @@ impl Generation {
     }
 }
 
-pub fn get_last_n_generations(generations: &[Generation], n: usize) -> Vec<Generation> {
-    let len = generations.len();
+pub struct GenerationSet {
+    generations: HashSet<Generation>,
+}
 
-    if n >= len {
-        return generations.to_vec();
+impl GenerationSet {
+    pub fn get_last_n_generations(&self, n: usize) -> Self {
+        let mut generations = self.generations.iter().cloned().collect::<Vec<_>>();
+
+        generations.sort_by(|a, b| a.id.cmp(&b.id));
+
+        if n >= generations.len() {
+            return generations.into();
+        }
+
+        generations[generations.len() - n..].into()
     }
 
-    generations[generations.len() - n..].to_vec()
+    pub fn iter(&self) -> impl Iterator<Item = &Generation> {
+        self.generations.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.generations.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.generations.is_empty()
+    }
+}
+
+impl From<Vec<Generation>> for GenerationSet {
+    fn from(generations: Vec<Generation>) -> Self {
+        Self {
+            generations: generations.into_iter().collect::<HashSet<Generation>>(),
+        }
+    }
+}
+
+impl From<&[Generation]> for GenerationSet {
+    fn from(generations: &[Generation]) -> Self {
+        Self {
+            generations: generations.iter().cloned().collect::<HashSet<Generation>>(),
+        }
+    }
 }
 
 pub fn get_active_on_or_after(generations: &[Generation], date: NaiveDateTime) -> Vec<Generation> {
@@ -61,7 +97,8 @@ pub fn generations_to_delete(
     keep: usize,
     date: NaiveDateTime,
 ) -> HashSet<Generation> {
-    let by_count = get_last_n_generations(generations, dbg!(keep))
+    let by_count = <&[Generation] as Into<GenerationSet>>::into(generations)
+        .get_last_n_generations(keep)
         .iter()
         .cloned()
         .collect::<HashSet<Generation>>();
@@ -305,12 +342,16 @@ mod test {
     #[case(22, 661)]
     #[case(31, 661)]
     fn test_get_last_n_generations(#[case] n: usize, #[case] first_id: u32) -> Result<()> {
-        let parsed = Generation::parse_many(INPUT_WITH_CURRENT)?;
+        let parsed_vec = Generation::parse_many(INPUT_WITH_CURRENT)?;
+        let parsed = Into::<GenerationSet>::into(parsed_vec.clone());
 
-        let filtered = get_last_n_generations(&parsed, n);
+        let filtered = parsed.get_last_n_generations(n);
+        let mut filtered_vec = filtered.iter().cloned().collect::<Vec<_>>();
 
-        assert_eq!(filtered[0].id, first_id);
-        assert_eq!(filtered, parsed[parsed.len() - filtered.len()..]);
+        filtered_vec.sort_by(|a, b| a.id.cmp(&b.id));
+
+        assert_eq!(filtered_vec[0].id, first_id);
+        assert_eq!(filtered_vec, parsed_vec[parsed.len() - filtered.len()..]);
 
         Ok(())
     }
