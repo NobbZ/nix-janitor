@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use chrono::prelude::*;
 use eyre::Result;
@@ -8,6 +8,18 @@ pub struct Generation {
     id: u32,
     date: NaiveDateTime,
     current: bool,
+}
+
+impl PartialOrd for Generation {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.id.partial_cmp(&other.id)
+    }
+}
+
+impl Ord for Generation {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.id.cmp(&other.id)
+    }
 }
 
 impl Generation {
@@ -34,7 +46,7 @@ impl Generation {
 }
 
 pub struct GenerationSet {
-    generations: HashSet<Generation>,
+    generations: BTreeSet<Generation>,
 }
 
 impl GenerationSet {
@@ -48,6 +60,23 @@ impl GenerationSet {
         }
 
         generations[generations.len() - n..].into()
+    }
+
+    pub fn get_active_on_or_after(&self, date: NaiveDateTime) -> Self {
+        let (newer, older): (Vec<_>, _) = self.iter().partition(|g| g.date >= date);
+
+        older
+            .iter()
+            .last()
+            .map_or_else(
+                || newer.clone(),
+                |last| {
+                    let mut result = vec![*last];
+                    result.extend_from_slice(&newer);
+                    result
+                },
+            )
+            .into()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Generation> {
@@ -66,7 +95,7 @@ impl GenerationSet {
 impl From<Vec<Generation>> for GenerationSet {
     fn from(generations: Vec<Generation>) -> Self {
         Self {
-            generations: generations.into_iter().collect::<HashSet<Generation>>(),
+            generations: generations.into_iter().collect::<BTreeSet<Generation>>(),
         }
     }
 }
@@ -74,44 +103,29 @@ impl From<Vec<Generation>> for GenerationSet {
 impl From<&[Generation]> for GenerationSet {
     fn from(generations: &[Generation]) -> Self {
         Self {
-            generations: generations.iter().cloned().collect::<HashSet<Generation>>(),
+            generations: generations
+                .iter()
+                .cloned()
+                .collect::<BTreeSet<Generation>>(),
         }
     }
-}
-
-pub fn get_active_on_or_after(generations: &[Generation], date: NaiveDateTime) -> Vec<Generation> {
-    let (newer, older): (Vec<_>, _) = generations.iter().partition(|g| g.date >= date);
-
-    older.iter().last().map_or_else(
-        || newer.clone(),
-        |last| {
-            let mut result = vec![*last];
-            result.extend_from_slice(&newer);
-            result
-        },
-    )
 }
 
 pub fn generations_to_delete(
     generations: &[Generation],
     keep: usize,
     date: NaiveDateTime,
-) -> HashSet<Generation> {
-    let by_count = <&[Generation] as Into<GenerationSet>>::into(generations)
-        .get_last_n_generations(keep)
-        .iter()
-        .cloned()
-        .collect::<HashSet<Generation>>();
+) -> BTreeSet<Generation> {
+    let generation_set = <&[Generation] as Into<GenerationSet>>::into(generations);
 
-    let by_date = get_active_on_or_after(generations, date)
-        .iter()
-        .cloned()
-        .collect::<HashSet<Generation>>();
+    let by_count = generation_set.get_last_n_generations(keep).generations;
+
+    let by_date = generation_set.get_active_on_or_after(date).generations;
 
     let to_keep = dbg!(by_count
         .union(&by_date)
         .cloned()
-        .collect::<HashSet<Generation>>());
+        .collect::<BTreeSet<Generation>>());
 
     dbg!(generations
         .iter()
@@ -342,7 +356,7 @@ mod test {
     #[case(22, 661)]
     #[case(31, 661)]
     fn test_get_last_n_generations(#[case] n: usize, #[case] first_id: u32) -> Result<()> {
-        let parsed_vec = Generation::parse_many(INPUT_WITH_CURRENT)?;
+        let parsed_vec = Generation::parse_many(INPUT_WITHOUT_CURRENT)?;
         let parsed = Into::<GenerationSet>::into(parsed_vec.clone());
 
         let filtered = parsed.get_last_n_generations(n);
@@ -363,12 +377,20 @@ mod test {
     #[case(ndt!("2023-07-01 00:00:00"), 672)]
     #[case(ndt!("2023-07-15 12:00:00"), 679)]
     fn test_get_active_on_or_after(#[case] date: NaiveDateTime, #[case] id: u32) -> Result<()> {
-        let parsed = Generation::parse_many(INPUT_WITH_CURRENT)?;
+        let parsed_vec = Generation::parse_many(INPUT_WITHOUT_CURRENT)?;
+        let parsed = Into::<GenerationSet>::into(parsed_vec.clone());
+        let parsed_ids = parsed
+            .iter()
+            .filter_map(|g| if g.id >= id { Some(g.id) } else { None })
+            .collect::<BTreeSet<u32>>();
 
-        let filtered = get_active_on_or_after(&parsed, date);
+        let filtered = parsed.get_active_on_or_after(date);
+        let filtered_ids = filtered.iter().map(|g| g.id).collect::<BTreeSet<u32>>();
 
-        assert_eq!(filtered[0].id, id);
-        assert_eq!(filtered, parsed[parsed.len() - filtered.len()..]);
+        let lowest_id = filtered.iter().map(|g| g.id).min().unwrap();
+
+        assert_eq!(lowest_id, id);
+        assert_eq!(filtered_ids, parsed_ids);
 
         Ok(())
     }
