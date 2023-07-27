@@ -21,8 +21,11 @@ impl Ord for Generation {
 }
 
 impl Generation {
-    pub fn parse(input: &str) -> Result<Self> {
-        let mut parts = input.split_whitespace();
+    pub fn parse<S>(input: S) -> Result<Self>
+    where
+        S: AsRef<str>,
+    {
+        let mut parts = input.as_ref().split_whitespace();
 
         let id = parts.next().unwrap().parse::<u32>().unwrap();
         let date = NaiveDateTime::parse_from_str(
@@ -35,8 +38,12 @@ impl Generation {
         Ok(Self { id, date, current })
     }
 
-    pub fn parse_many(input: &str) -> Result<Vec<Self>> {
+    pub fn parse_many<S>(input: S) -> Result<Vec<Self>>
+    where
+        S: AsRef<str>,
+    {
         input
+            .as_ref()
             .lines()
             .map(Self::parse)
             .collect::<Result<Vec<Self>>>()

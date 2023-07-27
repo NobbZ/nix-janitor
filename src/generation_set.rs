@@ -137,7 +137,7 @@ mod test {
     #[case(31, 661)]
     fn test_get_last_n_generations(#[case] n: usize, #[case] first_id: u32) -> Result<()> {
         let parsed_vec = Generation::parse_many(INPUT_WITH_CURRENT)?;
-        let parsed = Into::<GenerationSet>::into(parsed_vec.clone());
+        let parsed = Into::<GenerationSet>::into(parsed_vec.as_slice());
 
         let filtered = parsed.get_last_n_generations(n);
         let mut filtered_vec = filtered.iter().cloned().collect::<Vec<_>>();
@@ -158,7 +158,7 @@ mod test {
     #[case(ndt!("2023-07-15 12:00:00"), 679)]
     fn test_get_active_on_or_after(#[case] date: NaiveDateTime, #[case] id: u32) -> Result<()> {
         let parsed_vec = Generation::parse_many(INPUT_WITH_CURRENT)?;
-        let parsed = Into::<GenerationSet>::into(parsed_vec.clone());
+        let parsed = Into::<GenerationSet>::into(parsed_vec.as_ref());
         let parsed_ids = parsed
             .iter()
             .filter_map(|g| if g.id >= id { Some(g.id) } else { None })
@@ -167,9 +167,7 @@ mod test {
         let filtered = parsed.get_active_on_or_after(date);
         let filtered_ids = filtered.iter().map(|g| g.id).collect::<BTreeSet<u32>>();
 
-        let lowest_id = filtered.iter().map(|g| g.id).min().unwrap();
-
-        assert_eq!(lowest_id, id);
+        assert_eq!(filtered_ids.first(), Some(&id));
         assert_eq!(filtered_ids, parsed_ids);
 
         Ok(())
