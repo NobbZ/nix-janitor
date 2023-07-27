@@ -79,6 +79,22 @@ impl GenerationSet {
             .into()
     }
 
+    pub fn generations_to_delete(&self, keep: usize, date: NaiveDateTime) -> Self {
+        let by_count = self.get_last_n_generations(keep).generations;
+
+        let by_date = self.get_active_on_or_after(date).generations;
+
+        let to_keep = by_count
+            .union(&by_date)
+            .cloned()
+            .collect::<BTreeSet<Generation>>();
+
+        self.iter()
+            .cloned()
+            .filter(|g| !to_keep.contains(g))
+            .collect()
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &Generation> {
         self.generations.iter()
     }
@@ -92,10 +108,18 @@ impl GenerationSet {
     }
 }
 
+impl FromIterator<Generation> for GenerationSet {
+    fn from_iter<T: IntoIterator<Item = Generation>>(iter: T) -> Self {
+        Self {
+            generations: iter.into_iter().collect(),
+        }
+    }
+}
+
 impl From<Vec<Generation>> for GenerationSet {
     fn from(generations: Vec<Generation>) -> Self {
         Self {
-            generations: generations.into_iter().collect::<BTreeSet<Generation>>(),
+            generations: generations.into_iter().collect(),
         }
     }
 }
@@ -103,35 +127,9 @@ impl From<Vec<Generation>> for GenerationSet {
 impl From<&[Generation]> for GenerationSet {
     fn from(generations: &[Generation]) -> Self {
         Self {
-            generations: generations
-                .iter()
-                .cloned()
-                .collect::<BTreeSet<Generation>>(),
+            generations: generations.iter().cloned().collect(),
         }
     }
-}
-
-pub fn generations_to_delete(
-    generations: &[Generation],
-    keep: usize,
-    date: NaiveDateTime,
-) -> BTreeSet<Generation> {
-    let generation_set = <&[Generation] as Into<GenerationSet>>::into(generations);
-
-    let by_count = generation_set.get_last_n_generations(keep).generations;
-
-    let by_date = generation_set.get_active_on_or_after(date).generations;
-
-    let to_keep = dbg!(by_count
-        .union(&by_date)
-        .cloned()
-        .collect::<BTreeSet<Generation>>());
-
-    dbg!(generations
-        .iter()
-        .cloned()
-        .filter(|g| !to_keep.contains(g))
-        .collect())
 }
 
 #[cfg(test)]
@@ -419,9 +417,11 @@ mod test {
         #[case] date: NaiveDateTime,
         #[case] end: Option<usize>,
     ) -> Result<()> {
-        let parsed = Generation::parse_many(INPUT_WITH_CURRENT)?;
+        let parsed_vec = Generation::parse_many(INPUT_WITH_CURRENT)?;
+        let parsed = Into::<GenerationSet>::into(parsed_vec.clone());
 
-        let mut filtered = generations_to_delete(&parsed, keep, date)
+        let mut filtered = parsed
+            .generations_to_delete(keep, date)
             .iter()
             .cloned()
             .collect::<Vec<_>>();
@@ -430,7 +430,7 @@ mod test {
 
         assert_eq!(
             filtered,
-            end.map_or_else(Vec::new, |end| parsed[0..=end].into())
+            end.map_or_else(Vec::new, |end| parsed_vec[0..=end].into())
         );
 
         Ok(())
