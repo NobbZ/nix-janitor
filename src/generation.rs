@@ -1,11 +1,38 @@
 use chrono::prelude::*;
-use eyre::Result;
+use eyre::{eyre, Context, Result};
 
+/// Represents a single generation of a nix profile.
+///
+/// # Fields
+///
+/// * `id` - The unique id of this generation.
+/// * `date` - The date and time this generation was created.
+/// * `current` - Whether this generation is the currently active one.
+///
+/// # Examples
+///
+/// ```
+/// use janitor::Generation;
+/// use chrono::NaiveDateTime;
+///
+/// let generation = Generation {
+///     id: 661,
+///     date: NaiveDateTime::parse_from_str("2023-06-01 08:10:47", "%Y-%m-%d %H:%M:%S").unwrap(),  
+///     current: false,
+/// };
+/// ```
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Generation {
-    pub(crate) id: u32,
-    pub(crate) date: NaiveDateTime,
-    pub(crate) current: bool,
+    /// The ID of this generation.
+    ///
+    /// Nix uses this ID itself to identify the generation within the profile.
+    pub id: u32,
+
+    /// The date and time this generation was created.
+    pub date: NaiveDateTime,
+
+    /// Whether this generation is the currently active one.
+    pub current: bool,
 }
 
 impl PartialOrd for Generation {
@@ -21,23 +48,92 @@ impl Ord for Generation {
 }
 
 impl Generation {
+    /// Parses a generation from an input string.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The input string to parse. Should contain the id, date, time
+    ///   and optionally "(current)" to indicate if this is the current generation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `eyre::Result` which can fail with:
+    ///
+    /// - An `eyre::Error` if the id fails to parse as a `u32`.
+    /// - An `eyre::Error` if the date or time strings are missing.
+    /// - A `chrono::ParseError` if the date/time fails to parse.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use janitor::*;
+    /// use chrono::NaiveDateTime;
+    /// use eyre::Result;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let input = "661 2023-06-01 08:10:47";
+    /// let generation = Generation::parse(input)?;
+    /// assert_eq!(generation.id, 661);
+    /// assert_eq!(generation.date, NaiveDateTime::parse_from_str("2023-06-01 08:10:47", "%Y-%m-%d %H:%M:%S").unwrap());
+    /// assert!(!generation.current);
+    ///
+    /// let input = "681 2023-07-16 11:35:46 (current)";
+    /// let generation = Generation::parse(input)?;
+    /// assert!(generation.current);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn parse<S>(input: S) -> Result<Self>
     where
         S: AsRef<str>,
     {
         let mut parts = input.as_ref().split_whitespace();
 
-        let id = parts.next().unwrap().parse::<u32>().unwrap();
-        let date = NaiveDateTime::parse_from_str(
-            &format!("{} {}", parts.next().unwrap(), parts.next().unwrap()),
-            "%Y-%m-%d %H:%M:%S",
-        )?;
+        let id = parts
+            .next()
+            .unwrap()
+            .parse::<u32>()
+            .wrap_err("Failed to parse generation id")?;
+        let date_str = parts.next().ok_or_else(|| eyre!("Date missing"))?;
+        let time_str = parts.next().ok_or_else(|| eyre!("Time missing"))?;
+        let date_time_str = format!("{} {}", date_str, time_str);
+        let date = NaiveDateTime::parse_from_str(&date_time_str, "%Y-%m-%d %H:%M:%S")?;
 
         let current = parts.next() == Some("(current)");
 
         Ok(Self { id, date, current })
     }
 
+    /// Parses multiple generations from a string with each generation on a new line.
+    ///
+    /// Empty lines, or those only containing whitespace, will be ignored.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The input string to parse. Each line should contain a single
+    ///   generation in the format accepted by [Generation::parse].
+    ///
+    /// # Errors
+    ///
+    /// Returns an `eyre::Result` which will accumulate any errors from the individual
+    /// calls to [Generation::parse] on each line.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use janitor::Generation;
+    ///
+    /// # fn main() -> eyre::Result<()> {
+    /// let input = "
+    /// 661 2023-06-01 08:10:47
+    /// 662 2023-06-05 21:35:55  
+    /// ";
+    ///
+    /// let generations = Generation::parse_many(input)?;
+    /// assert_eq!(generations.len(), 2);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn parse_many<S>(input: S) -> Result<Vec<Self>>
     where
         S: AsRef<str>,
@@ -45,6 +141,7 @@ impl Generation {
         input
             .as_ref()
             .lines()
+            .filter(|line| !line.trim().is_empty())
             .map(Self::parse)
             .collect::<Result<Vec<Self>>>()
     }
@@ -228,6 +325,41 @@ mod test {
         assert_eq!(parsed, generation!(681, "2023-07-16 11:35:46", true));
 
         Ok(())
+    }
+
+    #[test]
+    fn test_parse_invalid_id() {
+        let input = "abc 2023-01-01 00:00:00";
+
+        assert!(Generation::parse(input).is_err());
+    }
+
+    #[test]
+    fn test_parse_missing_date() {
+        let input = "123 ";
+
+        assert!(Generation::parse(input).is_err());
+    }
+
+    #[test]
+    fn test_parse_invalid_date() {
+        let input = "123 2023-01-32 00:00:00";
+
+        assert!(Generation::parse(input).is_err());
+    }
+
+    #[test]
+    fn test_parse_missing_time() {
+        let input = "123 2023-01-01";
+
+        assert!(Generation::parse(input).is_err());
+    }
+
+    #[test]
+    fn test_parse_invalid_time() {
+        let input = "123 2023-01-01 25:61:00";
+
+        assert!(Generation::parse(input).is_err());
     }
 
     #[test]
