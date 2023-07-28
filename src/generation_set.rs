@@ -154,8 +154,12 @@ impl GenerationSet {
             .collect()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Generation> {
-        self.generations.iter()
+    pub fn get(&self, id: u32) -> Option<&Generation> {
+        self.generations.iter().find(|g| g.id == id)
+    }
+
+    pub fn contains(&self, id: u32) -> bool {
+        self.get(id).is_some()
     }
 
     pub fn len(&self) -> usize {
@@ -164,6 +168,28 @@ impl GenerationSet {
 
     pub fn is_empty(&self) -> bool {
         self.generations.is_empty()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Generation> {
+        self.generations.iter()
+    }
+}
+
+impl IntoIterator for GenerationSet {
+    type Item = Generation;
+    type IntoIter = std::collections::btree_set::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.generations.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a GenerationSet {
+    type Item = &'a Generation;
+    type IntoIter = std::collections::btree_set::Iter<'a, Generation>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.generations.iter()
     }
 }
 
@@ -175,18 +201,25 @@ impl FromIterator<Generation> for GenerationSet {
     }
 }
 
-impl From<Vec<Generation>> for GenerationSet {
-    fn from(generations: Vec<Generation>) -> Self {
-        Self {
-            generations: generations.into_iter().collect(),
-        }
+impl From<GenerationSet> for Vec<Generation> {
+    fn from(val: GenerationSet) -> Self {
+        val.generations.into_iter().collect()
     }
 }
 
-impl From<&[Generation]> for GenerationSet {
-    fn from(generations: &[Generation]) -> Self {
+impl From<GenerationSet> for BTreeSet<u32> {
+    fn from(val: GenerationSet) -> Self {
+        val.generations.into_iter().map(|g| g.id).collect()
+    }
+}
+
+impl<S> From<S> for GenerationSet
+where
+    S: AsRef<[Generation]>,
+{
+    fn from(iter: S) -> Self {
         Self {
-            generations: generations.iter().cloned().collect(),
+            generations: iter.as_ref().iter().cloned().collect(),
         }
     }
 }
