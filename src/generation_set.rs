@@ -4,11 +4,47 @@ use chrono::prelude::*;
 
 use crate::generation::Generation;
 
+/// Represents a set of [Generation]s.
+///
+/// The generations are stored in a [BTreeSet] and kept in order by
+/// [Generation::id].
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GenerationSet {
     generations: BTreeSet<Generation>,
 }
 
 impl GenerationSet {
+    /// Returns a new [GenerationSet] containing only the `n` most recent
+    /// [Generation]s in this set.
+    ///
+    /// The generations are sorted by [Generation::id] in descending order, so
+    /// the highest ids are first.
+    ///
+    /// If `n` is greater than or equal to the number of generations in this set,
+    /// a clone of this entire set is returned.  
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - The number of recent generations to return
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use janitor::{Generation, GenerationSet};
+    /// use chrono::prelude::*;
+    ///
+    /// let date = NaiveDateTime::from_timestamp_opt(0, 0).unwrap();
+    ///
+    /// let generations = vec![
+    ///     Generation { id: 1, current: false, date },
+    ///     Generation { id: 2, current: false, date },
+    ///     Generation { id: 3, current: false, date },
+    /// ].into_iter().collect::<GenerationSet>();
+    ///
+    /// let recent = generations.get_last_n_generations(2);
+    /// assert_eq!(recent.len(), 2);
+    /// assert_eq!(recent.iter().map(|g| g.id).collect::<Vec<_>>(), vec![2, 3]);
+    /// ```
     pub fn get_last_n_generations(&self, n: usize) -> Self {
         let mut generations = self.generations.iter().cloned().collect::<Vec<_>>();
 
@@ -21,6 +57,36 @@ impl GenerationSet {
         generations[generations.len() - n..].into()
     }
 
+    /// Returns a new [GenerationSet] containing the active generation on or after
+    /// the provided `date`, along with any newer generations.
+    ///
+    /// The result will include the last generation before `date` as it potentially
+    /// has been active on `date`.
+    ///
+    /// # Arguments
+    ///
+    /// * `date` - The cutoff date. The returned set will contain any generation
+    ///   that has been potentially active on or after this point in time.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use chrono::NaiveDateTime;  
+    /// use janitor::{Generation, GenerationSet};
+    ///
+    /// let date1 = NaiveDateTime::parse_from_str("2020-01-01 00:00", "%Y-%m-%d %H:%M").unwrap();
+    /// let date2 = NaiveDateTime::parse_from_str("2020-02-01 00:00", "%Y-%m-%d %H:%M").unwrap();
+    /// let cutoff = NaiveDateTime::parse_from_str("2020-02-02 00:00", "%Y-%m-%d %H:%M").unwrap();
+    ///
+    /// let generations = vec![
+    ///     Generation { id: 1, date: date1, current: false },
+    ///     Generation { id: 2, date: date2, current: false },
+    /// ].into_iter().collect::<GenerationSet>();
+    ///
+    /// let active = generations.get_active_on_or_after(cutoff);
+    /// assert_eq!(active.len(), 1);
+    /// assert_eq!(active.iter().next().unwrap().id, 2);
+    /// ```
     pub fn get_active_on_or_after(&self, date: NaiveDateTime) -> Self {
         let (newer, older): (Vec<_>, _) = self.iter().partition(|g| g.date >= date);
 
@@ -38,6 +104,40 @@ impl GenerationSet {
             .into()
     }
 
+    /// Returns a new [GenerationSet] containing generations that should be deleted.
+    ///
+    /// The returned set will contain all generations except:
+    ///
+    /// - The `keep` most recent generations based on [Generation::id].
+    /// - Any generations active on or after `date`.
+    ///
+    /// # Arguments
+    ///
+    /// * `keep` - The number of recent generations to keep.
+    /// * `date` - The cutoff date. Generations active on or after this will be kept.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use chrono::NaiveDateTime;
+    /// use janitor::{Generation, GenerationSet};
+    ///  
+    /// let date1 = NaiveDateTime::parse_from_str("2020-01-01 00:00", "%Y-%m-%d %H:%M").unwrap();
+    /// let date2 = NaiveDateTime::parse_from_str("2020-02-01 00:00", "%Y-%m-%d %H:%M").unwrap();
+    /// let date3 = NaiveDateTime::parse_from_str("2020-03-01 00:00", "%Y-%m-%d %H:%M").unwrap();
+    ///
+    /// let threshold = NaiveDateTime::parse_from_str("2020-02-02 00:00", "%Y-%m-%d %H:%M").unwrap();
+    ///
+    /// let generations = vec![
+    ///     Generation { id: 1, date: date1, current: false }, // delete
+    ///     Generation { id: 2, date: date2, current: false }, // keep (because of date)
+    ///     Generation { id: 3, date: date3, current: false }, // keep (recent)
+    /// ].into_iter().collect::<GenerationSet>();
+    ///
+    /// let to_delete = generations.generations_to_delete(1, threshold);
+    /// assert_eq!(to_delete.len(), 1);
+    /// assert_eq!(to_delete.iter().next().unwrap().id, 1);
+    /// ```
     pub fn generations_to_delete(&self, keep: usize, date: NaiveDateTime) -> Self {
         let by_count = self.get_last_n_generations(keep).generations;
 
