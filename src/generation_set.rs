@@ -226,6 +226,8 @@ where
 
 #[cfg(test)]
 mod test {
+    use std::ops::{Bound::Included, RangeBounds};
+
     use rstest::rstest;
 
     use eyre::Result;
@@ -262,89 +264,80 @@ mod test {
     681   2023-07-16 11:35:46   (current)"#;
 
     #[rstest]
-    #[case(1, 681)]
-    #[case(5, 677)]
-    #[case(10, 672)]
-    #[case(21, 661)]
-    #[case(22, 661)]
-    #[case(31, 661)]
-    fn test_get_last_n_generations(#[case] n: usize, #[case] first_id: u32) -> Result<()> {
+    #[case( 1, 681..=681)]
+    #[case( 5, 677..=681)]
+    #[case(10, 672..=681)]
+    #[case(21, 661..=681)]
+    #[case(22, 661..=681)]
+    #[case(31, 661..=681)]
+    fn test_get_last_n_generations<R>(#[case] n: usize, #[case] ids: R) -> Result<()>
+    where
+        R: RangeBounds<u32> + IntoIterator<Item = u32>,
+    {
         let parsed_vec = Generation::parse_many(INPUT_WITH_CURRENT)?;
         let parsed = Into::<GenerationSet>::into(parsed_vec.as_slice());
 
-        let filtered = parsed.get_last_n_generations(n);
-        let mut filtered_vec = filtered.iter().cloned().collect::<Vec<_>>();
+        let filtered: BTreeSet<u32> = parsed.get_last_n_generations(n).into();
 
-        filtered_vec.sort_by(|a, b| a.id.cmp(&b.id));
-
-        assert_eq!(filtered_vec[0].id, first_id);
-        assert_eq!(filtered_vec, parsed_vec[parsed.len() - filtered.len()..]);
+        assert_eq!(filtered, ids.into_iter().collect());
 
         Ok(())
     }
 
     #[rstest]
-    #[case(ndt!("2023-06-01 00:00:00"), 661)]
-    #[case(ndt!("2023-06-10 00:00:00"), 666)]
-    #[case(ndt!("2023-06-20 00:00:00"), 671)]
-    #[case(ndt!("2023-07-01 00:00:00"), 672)]
-    #[case(ndt!("2023-07-15 12:00:00"), 679)]
-    fn test_get_active_on_or_after(#[case] date: NaiveDateTime, #[case] id: u32) -> Result<()> {
+    #[case(ndt!("2023-06-01 00:00:00"), 661..=681)]
+    #[case(ndt!("2023-06-10 00:00:00"), 666..=681)]
+    #[case(ndt!("2023-06-20 00:00:00"), 671..=681)]
+    #[case(ndt!("2023-07-01 00:00:00"), 672..=681)]
+    #[case(ndt!("2023-07-15 12:00:00"), 679..=681)]
+    fn test_get_active_on_or_after<R>(#[case] date: NaiveDateTime, #[case] ids: R) -> Result<()>
+    where
+        R: RangeBounds<u32> + IntoIterator<Item = u32>,
+    {
         let parsed_vec = Generation::parse_many(INPUT_WITH_CURRENT)?;
-        let parsed = Into::<GenerationSet>::into(parsed_vec.as_ref());
-        let parsed_ids = parsed
-            .iter()
-            .filter_map(|g| if g.id >= id { Some(g.id) } else { None })
-            .collect::<BTreeSet<u32>>();
+        let parsed = Into::<GenerationSet>::into(parsed_vec);
 
-        let filtered = parsed.get_active_on_or_after(date);
-        let filtered_ids = filtered.iter().map(|g| g.id).collect::<BTreeSet<u32>>();
+        let filtered: BTreeSet<u32> = parsed.get_active_on_or_after(date).into();
 
-        assert_eq!(filtered_ids.first(), Some(&id));
-        assert_eq!(filtered_ids, parsed_ids);
+        assert_eq!(filtered.first().map(Included), Some(ids.start_bound()));
+        assert_eq!(filtered, ids.into_iter().collect());
 
         Ok(())
     }
 
     #[rstest]
-    #[case(1, ndt!("2023-06-01 00:00:00"), None)]
-    #[case(1, ndt!("2023-07-01 00:00:00"), Some(10))]
-    #[case(1, ndt!("2023-07-15 12:00:00"), Some(17))]
-    #[case(5, ndt!("2023-06-01 00:00:00"), None)]
-    #[case(5, ndt!("2023-07-01 00:00:00"), Some(10))]
-    #[case(5, ndt!("2023-07-15 12:00:00"), Some(15))]
-    #[case(10, ndt!("2023-06-01 00:00:00"), None)]
-    #[case(10, ndt!("2023-07-01 00:00:00"), Some(10))]
-    #[case(10, ndt!("2023-07-15 12:00:00"), Some(10))]
-    #[case(21, ndt!("2023-06-01 00:00:00"), None)]
-    #[case(21, ndt!("2023-07-01 00:00:00"), None)]
-    #[case(21, ndt!("2023-07-15 12:00:00"), None)]
-    #[case(22, ndt!("2023-06-01 00:00:00"), None)]
-    #[case(22, ndt!("2023-07-01 00:00:00"), None)]
-    #[case(22, ndt!("2023-07-15 12:00:00"), None)]
-    #[case(31, ndt!("2023-06-01 00:00:00"), None)]
-    #[case(31, ndt!("2023-07-01 00:00:00"), None)]
-    #[case(31, ndt!("2023-07-15 12:00:00"), None)]
-    fn test_generations_to_delete(
+    #[case( 1, ndt!("2023-06-01 00:00:00"),   0..   0)]
+    #[case( 1, ndt!("2023-07-01 00:00:00"), 661..=671)]
+    #[case( 1, ndt!("2023-07-15 12:00:00"), 661..=678)]
+    #[case( 5, ndt!("2023-06-01 00:00:00"),   0..   0)]
+    #[case( 5, ndt!("2023-07-01 00:00:00"), 661..=671)]
+    #[case( 5, ndt!("2023-07-15 12:00:00"), 661..=676)]
+    #[case(10, ndt!("2023-06-01 00:00:00"),   0..   0)]
+    #[case(10, ndt!("2023-07-01 00:00:00"), 661..=671)]
+    #[case(10, ndt!("2023-07-15 12:00:00"), 661..=671)]
+    #[case(21, ndt!("2023-06-01 00:00:00"),   0..   0)]
+    #[case(21, ndt!("2023-07-01 00:00:00"),   0..   0)]
+    #[case(21, ndt!("2023-07-15 12:00:00"),   0..   0)]
+    #[case(22, ndt!("2023-06-01 00:00:00"),   0..   0)]
+    #[case(22, ndt!("2023-07-01 00:00:00"),   0..   0)]
+    #[case(22, ndt!("2023-07-15 12:00:00"),   0..   0)]
+    #[case(31, ndt!("2023-06-01 00:00:00"),   0..   0)]
+    #[case(31, ndt!("2023-07-01 00:00:00"),   0..   0)]
+    #[case(31, ndt!("2023-07-15 12:00:00"),   0..   0)]
+    fn test_generations_to_delete<R>(
         #[case] keep: usize,
         #[case] date: NaiveDateTime,
-        #[case] end: Option<usize>,
-    ) -> Result<()> {
+        #[case] ids: R,
+    ) -> Result<()>
+    where
+        R: RangeBounds<u32> + IntoIterator<Item = u32>,
+    {
         let parsed_vec = Generation::parse_many(INPUT_WITH_CURRENT)?;
-        let parsed = Into::<GenerationSet>::into(parsed_vec.clone());
+        let parsed = Into::<GenerationSet>::into(parsed_vec);
 
-        let mut filtered = parsed
-            .generations_to_delete(keep, date)
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>();
+        let filtered: BTreeSet<u32> = parsed.generations_to_delete(keep, date).into();
 
-        filtered.sort_by(|a, b| a.id.cmp(&b.id));
-
-        assert_eq!(
-            filtered,
-            end.map_or_else(Vec::new, |end| parsed_vec[0..=end].into())
-        );
+        assert_eq!(filtered, ids.into_iter().collect());
 
         Ok(())
     }
