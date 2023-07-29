@@ -39,12 +39,23 @@
         packageFun = import "${inputs.self}/Cargo.nix";
       };
 
+      legacyPackages.helpers.testrunner = pkgs.writeShellScriptBin "testrunner" ''
+        ${pkgs.inotify-tools}/bin/inotifywait -m -r -e close_write,moved_to --format '%w%f' src | \
+          while read dir action file; do
+            cargo nextest run
+            cargo test --doc
+            cargo doc
+          done
+      '';
+
       packages.janitor = (self'.legacyPackages.janitorPkgsBuilder.workspace.janitor {}).bin;
       packages.default = self'.packages.janitor;
 
       devShells.default = pkgs.mkShell {
         packages = builtins.attrValues {
-          inherit (pkgs) cargo-nextest cargo-audit cargo-deny cargo-tarpaulin rust-analyzer nil;
+          inherit (pkgs) cargo-nextest cargo-audit cargo-deny cargo-tarpaulin rust-analyzer;
+          inherit (pkgs) nil;
+          inherit (self'.legacyPackages.helpers) testrunner;
           inherit rust;
         };
       };
