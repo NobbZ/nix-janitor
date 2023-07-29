@@ -226,14 +226,14 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::ops::{Bound::Included, RangeBounds};
-
-    use rstest::rstest;
+    use std::ops::RangeBounds;
 
     use eyre::Result;
+    use rstest::{fixture, rstest};
+
+    use crate::generation::Generation;
 
     use super::*;
-    use crate::generation::Generation;
 
     macro_rules! ndt {
         ( $date:expr ) => {
@@ -263,6 +263,11 @@ mod test {
     680   2023-07-15 22:40:41   
     681   2023-07-16 11:35:46   (current)"#;
 
+    #[fixture]
+    fn parsed() -> Result<GenerationSet> {
+        Ok(Generation::parse_many(INPUT_WITH_CURRENT)?.into())
+    }
+
     #[rstest]
     #[case( 1, 681..=681)]
     #[case( 5, 677..=681)]
@@ -270,14 +275,15 @@ mod test {
     #[case(21, 661..=681)]
     #[case(22, 661..=681)]
     #[case(31, 661..=681)]
-    fn test_get_last_n_generations<R>(#[case] n: usize, #[case] ids: R) -> Result<()>
+    fn test_get_last_n_generations<R>(
+        parsed: Result<GenerationSet>,
+        #[case] n: usize,
+        #[case] ids: R,
+    ) -> Result<()>
     where
         R: RangeBounds<u32> + IntoIterator<Item = u32>,
     {
-        let parsed_vec = Generation::parse_many(INPUT_WITH_CURRENT)?;
-        let parsed = Into::<GenerationSet>::into(parsed_vec.as_slice());
-
-        let filtered: BTreeSet<u32> = parsed.get_last_n_generations(n).into();
+        let filtered: BTreeSet<u32> = parsed?.get_last_n_generations(n).into();
 
         assert_eq!(filtered, ids.into_iter().collect());
 
@@ -290,16 +296,16 @@ mod test {
     #[case(ndt!("2023-06-20 00:00:00"), 671..=681)]
     #[case(ndt!("2023-07-01 00:00:00"), 672..=681)]
     #[case(ndt!("2023-07-15 12:00:00"), 679..=681)]
-    fn test_get_active_on_or_after<R>(#[case] date: NaiveDateTime, #[case] ids: R) -> Result<()>
+    fn test_get_active_on_or_after<R>(
+        parsed: Result<GenerationSet>,
+        #[case] date: NaiveDateTime,
+        #[case] ids: R,
+    ) -> Result<()>
     where
         R: RangeBounds<u32> + IntoIterator<Item = u32>,
     {
-        let parsed_vec = Generation::parse_many(INPUT_WITH_CURRENT)?;
-        let parsed = Into::<GenerationSet>::into(parsed_vec);
+        let filtered: BTreeSet<u32> = parsed?.get_active_on_or_after(date).into();
 
-        let filtered: BTreeSet<u32> = parsed.get_active_on_or_after(date).into();
-
-        assert_eq!(filtered.first().map(Included), Some(ids.start_bound()));
         assert_eq!(filtered, ids.into_iter().collect());
 
         Ok(())
@@ -325,6 +331,7 @@ mod test {
     #[case(31, ndt!("2023-07-01 00:00:00"),   0..   0)]
     #[case(31, ndt!("2023-07-15 12:00:00"),   0..   0)]
     fn test_generations_to_delete<R>(
+        parsed: Result<GenerationSet>,
         #[case] keep: usize,
         #[case] date: NaiveDateTime,
         #[case] ids: R,
@@ -332,10 +339,7 @@ mod test {
     where
         R: RangeBounds<u32> + IntoIterator<Item = u32>,
     {
-        let parsed_vec = Generation::parse_many(INPUT_WITH_CURRENT)?;
-        let parsed = Into::<GenerationSet>::into(parsed_vec);
-
-        let filtered: BTreeSet<u32> = parsed.generations_to_delete(keep, date).into();
+        let filtered: BTreeSet<u32> = parsed?.generations_to_delete(keep, date).into();
 
         assert_eq!(filtered, ids.into_iter().collect());
 

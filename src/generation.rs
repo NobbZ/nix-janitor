@@ -99,7 +99,11 @@ impl Generation {
         let date_time_str = format!("{} {}", date_str, time_str);
         let date = NaiveDateTime::parse_from_str(&date_time_str, "%Y-%m-%d %H:%M:%S")?;
 
-        let current = parts.next() == Some("(current)");
+        let current = match parts.next() {
+            Some("(current)") => true,
+            None => false,
+            _ => return Err(eyre!("Invalid current flag")),
+        };
 
         Ok(Self { id, date, current })
     }
@@ -150,6 +154,8 @@ impl Generation {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    use rstest::rstest;
 
     use lazy_static::lazy_static;
 
@@ -309,83 +315,41 @@ mod test {
      680   2023-07-15 22:40:41   
      681   2023-07-16 11:35:46"#;
 
-    #[test]
-    fn parse_single_generation() -> Result<()> {
-        let parsed = Generation::parse("681   2023-07-16 11:35:46")?;
+    #[rstest]
+    #[case::without_current("681   2023-07-16 11:35:46", generation!(681, "2023-07-16 11:35:46"))]
+    #[case::with_current("681   2023-07-16 11:35:46  (current)", generation!(681, "2023-07-16 11:35:46", true))]
+    fn parse_single(#[case] input: &str, #[case] expected: Generation) -> Result<()> {
+        let parsed = Generation::parse(input)?;
 
-        assert_eq!(parsed, generation!(681, "2023-07-16 11:35:46"));
-
-        Ok(())
-    }
-
-    #[test]
-    fn parse_single_current_generation() -> Result<()> {
-        let parsed = Generation::parse("681   2023-07-16 11:35:46    (current)")?;
-
-        assert_eq!(parsed, generation!(681, "2023-07-16 11:35:46", true));
+        assert_eq!(parsed, expected);
 
         Ok(())
     }
 
-    #[test]
-    fn test_parse_invalid_id() {
-        let input = "abc 2023-01-01 00:00:00";
-
+    #[rstest]
+    #[case::invalid_time("123 2023-01-01 25:61:00")]
+    #[case::missing_time("123 2023-01-01 ")]
+    #[case::invalid_date("123 2023-01-32 00:00:00")]
+    #[case::missing_date("123")]
+    #[case::invalid_id("abc 2023-01-01 00:00:00")]
+    #[case::invalid_current("123 2023-01-01 00:00:00 (invalid)")]
+    fn parse_errors(#[case] input: &str) {
         assert!(Generation::parse(input).is_err());
     }
 
-    #[test]
-    fn test_parse_missing_date() {
-        let input = "123 ";
+    #[rstest]
+    #[case::without_current(INPUT_WITHOUT_CURRENT, GENERATIONS_WITHOUT_CURRENT.clone())]
+    #[case::with_current(INPUT_WITH_CURRENT, GENERATIONS_WITH_CURRENT.clone())]
+    #[case::with_current_in_the_middle(
+        INPUT_WITH_CURRENT_IN_THE_MIDDLE,
+        GENERATIONS_WITH_CURRENT_IN_THE_MIDDLE.clone()
+    )]
+    fn parse_many<G>(#[case] input: &str, #[case] expected: G)
+    where
+        G: AsRef<[Generation]>,
+    {
+        let parsed = Generation::parse_many(input).unwrap();
 
-        assert!(Generation::parse(input).is_err());
-    }
-
-    #[test]
-    fn test_parse_invalid_date() {
-        let input = "123 2023-01-32 00:00:00";
-
-        assert!(Generation::parse(input).is_err());
-    }
-
-    #[test]
-    fn test_parse_missing_time() {
-        let input = "123 2023-01-01";
-
-        assert!(Generation::parse(input).is_err());
-    }
-
-    #[test]
-    fn test_parse_invalid_time() {
-        let input = "123 2023-01-01 25:61:00";
-
-        assert!(Generation::parse(input).is_err());
-    }
-
-    #[test]
-    fn parse_many_without_current() -> Result<()> {
-        let parsed = Generation::parse_many(INPUT_WITHOUT_CURRENT)?;
-
-        assert_eq!(parsed, *GENERATIONS_WITHOUT_CURRENT);
-
-        Ok(())
-    }
-
-    #[test]
-    fn parse_many_with_current() -> Result<()> {
-        let parsed = Generation::parse_many(INPUT_WITH_CURRENT)?;
-
-        assert_eq!(parsed, *GENERATIONS_WITH_CURRENT);
-
-        Ok(())
-    }
-
-    #[test]
-    fn parse_many_with_current_in_the_middle() -> Result<()> {
-        let parsed = Generation::parse_many(INPUT_WITH_CURRENT_IN_THE_MIDDLE)?;
-
-        assert_eq!(parsed, *GENERATIONS_WITH_CURRENT_IN_THE_MIDDLE);
-
-        Ok(())
+        assert_eq!(parsed, expected.as_ref());
     }
 }
