@@ -345,4 +345,57 @@ mod test {
 
         Ok(())
     }
+
+    #[rstest]
+    #[case(661, ndt!("2023-06-01 08:10:47"), false)]
+    #[case(666, ndt!("2023-06-08 07:42:25"), false)]
+    #[case(671, ndt!("2023-06-19 18:54:32"), false)]
+    #[case(678, ndt!("2023-07-14 11:46:59"), false)]
+    #[case(681, ndt!("2023-07-16 11:35:46"), true)]
+    fn test_get(
+        parsed: Result<GenerationSet>,
+        #[case] id: u32,
+        #[case] date: NaiveDateTime,
+        #[case] current: bool,
+    ) -> Result<()> {
+        assert_eq!(parsed?.get(id), Some(&Generation { id, date, current }));
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[case(661, true)]
+    #[case(666, true)]
+    #[case(671, true)]
+    #[case(678, true)]
+    #[case(681, true)]
+    #[case(650, false)]
+    #[case(100, false)]
+    #[case(800, false)]
+    #[case(1000, false)]
+    fn test_contains(
+        parsed: Result<GenerationSet>,
+        #[case] id: u32,
+        #[case] exists: bool,
+    ) -> Result<()> {
+        assert_eq!(parsed?.contains(id), exists);
+
+        Ok(())
+    }
+
+    #[rstest]
+    #[case::empty(vec![].into(), 0)]
+    #[case::one(vec![Generation{id: 1, date: ndt!("2020-01-01 00:00:00"), current: false}].into(), 1)]
+    #[case::twenty_one(Generation::parse_many(INPUT_WITH_CURRENT).unwrap().into(), 21)]
+    fn test_len(#[case] set: GenerationSet, #[case] len: usize) {
+        assert_eq!(set.len(), len);
+    }
+
+    #[rstest]
+    #[case::empty(vec![].into(), true)]
+    #[case::one(vec![Generation{id: 1, date: ndt!("2020-01-01 00:00:00"), current: false}].into(), false)]
+    #[case::twenty_one(Generation::parse_many(INPUT_WITH_CURRENT).unwrap().into(), false)]
+    fn test_empty(#[case] set: GenerationSet, #[case] empty: bool) {
+        assert_eq!(set.is_empty(), empty);
+    }
 }
