@@ -1,4 +1,4 @@
-use std::{env, future::Future, path::PathBuf, process::Stdio};
+use std::{env, future::Future, process::Stdio};
 
 use chrono::{prelude::*, Duration};
 use eyre::Result;
@@ -7,7 +7,7 @@ use tokio::process::Command;
 use tracing::{Instrument, Level};
 use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 
-use janitor::{Generation, GenerationSet, Job};
+use janitor::{Generation, GenerationSet, Job, Profile};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const KEEP_AT_LEAST: usize = 5;
@@ -21,24 +21,7 @@ async fn main() -> Result<()> {
         .with_max_level(Level::TRACE)
         .init();
 
-    let profile_paths = {
-        let mut paths = vec![
-            "/nix/var/nix/profiles/per-user/$USER/profile",
-            "/home/$USER/.local/state/nix/profiles/home-manager",
-        ];
-
-        if is_root::is_root() {
-            paths.push("/nix/var/nix/profiles/system");
-        }
-
-        paths
-            .iter()
-            .map(|p| -> Result<_> { Ok(shellexpand::env_with_context(p, context).unwrap()) })
-            .map(|p| -> Result<_> { Ok(PathBuf::from(p?.to_string())) })
-            .filter_map(|pr| pr.ok())
-            .filter(|p| p.exists())
-            .collect::<Vec<_>>()
-    };
+    let profile_paths = Profile::all();
 
     // Configure thresholds and "print welcome"
     let now = Utc::now().naive_utc();
@@ -66,23 +49,6 @@ async fn main() -> Result<()> {
     .await?;
 
     Ok(())
-}
-
-fn context(s: &str) -> Result<Option<String>> {
-    match s {
-        "USER" => Ok(get_username()),
-        v => Err(eyre::eyre!("unknown variable: {v}")),
-    }
-}
-
-fn get_username() -> Option<String> {
-    if is_root::is_root() {
-        tracing::debug!("running as root, using SUDO_USER");
-        env::var("SUDO_USER").ok()
-    } else {
-        tracing::debug!("running regular user, using USER");
-        env::var("USER").ok()
-    }
 }
 
 #[tracing::instrument]
