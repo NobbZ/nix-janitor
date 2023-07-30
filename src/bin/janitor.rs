@@ -1,4 +1,5 @@
 use std::{
+    env,
     future::Future,
     path::{Path, PathBuf},
     process::Stdio,
@@ -29,6 +30,25 @@ async fn main() -> Result<()> {
         .with_max_level(Level::TRACE)
         .init();
 
+    let profile_paths = {
+        let mut paths = vec![
+            "/nix/var/nix/profiles/per-user/$USER/profile",
+            "/home/$USER/.local/state/nix/profiles/home-manager",
+        ];
+
+        if is_root::is_root() {
+            paths.push("/nix/var/nix/profiles/system");
+        }
+
+        paths
+            .iter()
+            .map(|p| -> Result<_> { Ok(shellexpand::env_with_context(p, context).unwrap()) })
+            .map(|p| -> Result<_> { Ok(PathBuf::from(p?.to_string())) })
+            .filter_map(|pr| pr.ok())
+            .filter(|p| p.exists())
+            .collect::<Vec<_>>()
+    };
+
     // Configure thresholds and "print welcome"
     let mut date = DATE.lock().await;
     let count = *COUNT;
@@ -37,24 +57,18 @@ async fn main() -> Result<()> {
     tracing::info!(
         keep_since = %date,
         keep_at_least = count,
+        profiles = ?profile_paths,
         "Starting to clean the profiles"
     );
     drop(date); // Drop the Mutex to avoid deadlocks
 
     try_join_all(
-        [
-            "/nix/var/nix/profiles/system",
-            "/nix/var/nix/profiles/per-user/$USER/profile",
-            "/home/$USER/.local/state/nix/profiles/home-manager",
-        ]
-        .iter()
-        .map(|p| -> Result<_> { Ok(shellexpand::env(p)?) })
-        .map(|p| -> Result<_> { Ok(p?.to_string()) })
-        .map(|p| -> Result<_> { Ok(PathBuf::from(p?)) })
-        .map(get_generations)
-        .map(get_to_delete)
-        .map(run_delete)
-        .collect::<Vec<_>>(),
+        profile_paths
+            .iter()
+            .map(get_generations)
+            .map(get_to_delete)
+            .map(run_delete)
+            .collect::<Vec<_>>(),
     )
     .instrument(tracing::info_span!("processing_profiles"))
     .await?;
@@ -62,12 +76,27 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+fn context(s: &str) -> Result<Option<String>> {
+    match s {
+        "USER" => Ok(get_username()),
+        v => Err(eyre::eyre!("unknown variable: {v}")),
+    }
+}
+
+fn get_username() -> Option<String> {
+    if is_root::is_root() {
+        env::var("SUDO_USER").ok()
+    } else {
+        env::var("USER").ok()
+    }
+}
+
 #[tracing::instrument]
-async fn get_generations<P>(profile_path: Result<P>) -> Result<(PathBuf, GenerationSet)>
+async fn get_generations<P>(profile_path: P) -> Result<(PathBuf, GenerationSet)>
 where
     P: AsRef<Path> + std::fmt::Debug,
 {
-    let path = profile_path?.as_ref().to_owned();
+    let path = profile_path.as_ref().to_owned();
 
     let output = Command::new("nix-env")
         .arg("--list-generations")
@@ -92,11 +121,12 @@ where
     Ok((path, parsed.into()))
 }
 
-#[tracing::instrument(skip(payload))]
+#[tracing::instrument(skip(payload), fields(path))]
 async fn get_to_delete(
     payload: impl Future<Output = Result<(PathBuf, GenerationSet)>>,
 ) -> Result<(PathBuf, GenerationSet)> {
     let (path, generations) = payload.await?;
+    tracing::Span::current().record("path", path.to_str());
     let date = DATE.lock().await;
     let count = *COUNT;
 
@@ -105,9 +135,10 @@ async fn get_to_delete(
     Ok((path, to_delete))
 }
 
-#[tracing::instrument(skip(payload))]
+#[tracing::instrument(skip(payload), fields(path))]
 async fn run_delete(payload: impl Future<Output = Result<(PathBuf, GenerationSet)>>) -> Result<()> {
     let (path, generations) = payload.await?;
+    tracing::Span::current().record("path", path.to_str());
     let ids: Vec<_> = generations
         .iter()
         .map(|g| g.id)
