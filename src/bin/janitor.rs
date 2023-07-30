@@ -1,15 +1,9 @@
-use std::{
-    env,
-    future::Future,
-    path::{Path, PathBuf},
-    process::Stdio,
-};
+use std::{env, fmt, future::Future, path::PathBuf, process::Stdio};
 
 use chrono::{prelude::*, Duration};
 use eyre::Result;
 use futures::future::try_join_all;
-use lazy_static::lazy_static;
-use tokio::{process::Command, sync::Mutex};
+use tokio::process::Command;
 use tracing::{Instrument, Level};
 use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 
@@ -17,9 +11,23 @@ use janitor::{Generation, GenerationSet};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const KEEP_AT_LEAST: usize = 5;
+const KEEP_DAYS: i64 = 7;
 
-lazy_static! {
-    static ref DATE: Mutex<NaiveDateTime> = Mutex::new(Utc::now().naive_utc());
+struct Job<T> {
+    path: PathBuf,
+    keep_since: NaiveDateTime,
+    keep_at_least: usize,
+    data: T,
+}
+
+impl<T> fmt::Debug for Job<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Job")
+            .field("path", &self.path)
+            .field("keep_since", &self.keep_since)
+            .field("keep_at_least", &self.keep_at_least)
+            .finish()
+    }
 }
 
 #[tokio::main]
@@ -50,20 +58,27 @@ async fn main() -> Result<()> {
     };
 
     // Configure thresholds and "print welcome"
-    let mut date = DATE.lock().await;
-    tracing::info!(start_time = %date, version = VERSION, "Starting janitor");
-    *date -= Duration::days(7);
+    let now = Utc::now().naive_utc();
+    let keep_since = now - Duration::days(KEEP_DAYS);
+    let keep_at_least = KEEP_AT_LEAST;
     tracing::info!(
-        keep_since = %date,
+        start_time = %now,
+        %keep_since,
         keep_at_least = KEEP_AT_LEAST,
         profiles = ?profile_paths,
-        "Starting to clean the profiles"
+        version = VERSION,
+        "Starting janitor"
     );
-    drop(date); // Drop the Mutex to avoid deadlocks
 
     try_join_all(
         profile_paths
             .iter()
+            .map(|path| Job {
+                path: path.clone(),
+                keep_since,
+                keep_at_least,
+                data: (),
+            })
             .map(get_generations)
             .map(get_to_delete)
             .map(run_delete)
@@ -84,18 +99,17 @@ fn context(s: &str) -> Result<Option<String>> {
 
 fn get_username() -> Option<String> {
     if is_root::is_root() {
+        tracing::debug!("running as root, using SUDO_USER");
         env::var("SUDO_USER").ok()
     } else {
+        tracing::debug!("running regular user, using USER");
         env::var("USER").ok()
     }
 }
 
 #[tracing::instrument]
-async fn get_generations<P>(profile_path: P) -> Result<(PathBuf, GenerationSet)>
-where
-    P: AsRef<Path> + std::fmt::Debug,
-{
-    let path = profile_path.as_ref().to_owned();
+async fn get_generations(job: Job<()>) -> Result<Job<GenerationSet>> {
+    let path = job.path;
 
     let output = Command::new("nix-env")
         .arg("--list-generations")
@@ -115,30 +129,45 @@ where
         ));
     }
 
-    let parsed = Generation::parse_many(std::str::from_utf8(output.stdout.as_ref())?)?;
+    let parsed = Generation::parse_many(std::str::from_utf8(output.stdout.as_ref())?)?.into();
 
-    Ok((path, parsed.into()))
+    Ok(Job {
+        data: parsed,
+        path,
+        keep_since: job.keep_since,
+        keep_at_least: job.keep_at_least,
+    })
 }
 
-#[tracing::instrument(skip(payload), fields(path))]
+#[tracing::instrument(skip(job), fields(path))]
 async fn get_to_delete(
-    payload: impl Future<Output = Result<(PathBuf, GenerationSet)>>,
-) -> Result<(PathBuf, GenerationSet)> {
-    let (path, generations) = payload.await?;
+    job: impl Future<Output = Result<Job<GenerationSet>>>,
+) -> Result<Job<GenerationSet>> {
+    let job = job.await?;
+    let path = job.path;
     tracing::Span::current().record("path", path.to_str());
-    let date = DATE.lock().await;
-    let count = KEEP_AT_LEAST;
 
-    let to_delete = generations.generations_to_delete(count, *date);
+    let keep_since = job.keep_since;
+    let keep_at_least = job.keep_at_least;
 
-    Ok((path, to_delete))
+    let to_delete = job.data.generations_to_delete(keep_at_least, keep_since);
+
+    Ok(Job {
+        data: to_delete,
+        path,
+        keep_since,
+        keep_at_least,
+    })
 }
 
-#[tracing::instrument(skip(payload), fields(path))]
-async fn run_delete(payload: impl Future<Output = Result<(PathBuf, GenerationSet)>>) -> Result<()> {
-    let (path, generations) = payload.await?;
+#[tracing::instrument(skip(job), fields(path))]
+async fn run_delete(job: impl Future<Output = Result<Job<GenerationSet>>>) -> Result<Job<()>> {
+    let job = job.await?;
+    let path = job.path;
     tracing::Span::current().record("path", path.to_str());
-    let ids: Vec<_> = generations
+
+    let ids: Vec<_> = job
+        .data
         .iter()
         .map(|g| g.id)
         .map(|id| id.to_string())
@@ -167,5 +196,10 @@ async fn run_delete(payload: impl Future<Output = Result<(PathBuf, GenerationSet
 
     tracing::info!(?path, ?ids, "deleted generations");
 
-    Ok(())
+    Ok(Job {
+        data: (),
+        path,
+        keep_since: job.keep_since,
+        keep_at_least: job.keep_at_least,
+    })
 }

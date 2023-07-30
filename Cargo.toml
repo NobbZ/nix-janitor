@@ -21,7 +21,7 @@ tracing-subscriber = "0.3.17"
 
 [dependencies.tokio]
 version = "1.29.1"
-features = ["macros", "process", "rt-multi-thread", "tracing", "sync"]
+features = ["macros", "process", "rt-multi-thread", "tracing"]
 
 [dev-dependencies]
 rstest = "0.18.1"
