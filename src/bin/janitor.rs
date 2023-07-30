@@ -16,10 +16,10 @@ use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 use janitor::{Generation, GenerationSet};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const KEEP_AT_LEAST: usize = 5;
 
 lazy_static! {
     static ref DATE: Mutex<NaiveDateTime> = Mutex::new(Utc::now().naive_utc());
-    static ref COUNT: usize = 5;
 }
 
 #[tokio::main]
@@ -51,12 +51,11 @@ async fn main() -> Result<()> {
 
     // Configure thresholds and "print welcome"
     let mut date = DATE.lock().await;
-    let count = *COUNT;
     tracing::info!(start_time = %date, version = VERSION, "Starting janitor");
     *date -= Duration::days(7);
     tracing::info!(
         keep_since = %date,
-        keep_at_least = count,
+        keep_at_least = KEEP_AT_LEAST,
         profiles = ?profile_paths,
         "Starting to clean the profiles"
     );
@@ -128,7 +127,7 @@ async fn get_to_delete(
     let (path, generations) = payload.await?;
     tracing::Span::current().record("path", path.to_str());
     let date = DATE.lock().await;
-    let count = *COUNT;
+    let count = KEEP_AT_LEAST;
 
     let to_delete = generations.generations_to_delete(count, *date);
 
