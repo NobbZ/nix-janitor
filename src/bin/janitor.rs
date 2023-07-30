@@ -1,4 +1,4 @@
-use std::{env, fmt, future::Future, path::PathBuf, process::Stdio};
+use std::{env, future::Future, path::PathBuf, process::Stdio};
 
 use chrono::{prelude::*, Duration};
 use eyre::Result;
@@ -7,28 +7,11 @@ use tokio::process::Command;
 use tracing::{Instrument, Level};
 use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 
-use janitor::{Generation, GenerationSet};
+use janitor::{Generation, GenerationSet, Job};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const KEEP_AT_LEAST: usize = 5;
 const KEEP_DAYS: i64 = 7;
-
-struct Job<T> {
-    path: PathBuf,
-    keep_since: NaiveDateTime,
-    keep_at_least: usize,
-    data: T,
-}
-
-impl<T> fmt::Debug for Job<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Job")
-            .field("path", &self.path)
-            .field("keep_since", &self.keep_since)
-            .field("keep_at_least", &self.keep_at_least)
-            .finish()
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -73,12 +56,7 @@ async fn main() -> Result<()> {
     try_join_all(
         profile_paths
             .iter()
-            .map(|path| Job {
-                path: path.clone(),
-                keep_since,
-                keep_at_least,
-                data: (),
-            })
+            .map(|path| Job::new(path, keep_since, keep_at_least, ()))
             .map(get_generations)
             .map(get_to_delete)
             .map(run_delete)
@@ -109,12 +87,12 @@ fn get_username() -> Option<String> {
 
 #[tracing::instrument]
 async fn get_generations(job: Job<()>) -> Result<Job<GenerationSet>> {
-    let path = job.path;
+    let path = job.path();
 
     let output = Command::new("nix-env")
         .arg("--list-generations")
         .arg("--profile")
-        .arg(&path)
+        .arg(path)
         .stderr(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()?
@@ -131,12 +109,7 @@ async fn get_generations(job: Job<()>) -> Result<Job<GenerationSet>> {
 
     let parsed = Generation::parse_many(std::str::from_utf8(output.stdout.as_ref())?)?.into();
 
-    Ok(Job {
-        data: parsed,
-        path,
-        keep_since: job.keep_since,
-        keep_at_least: job.keep_at_least,
-    })
+    Ok(job.set_data(parsed))
 }
 
 #[tracing::instrument(skip(job), fields(path))]
@@ -144,30 +117,25 @@ async fn get_to_delete(
     job: impl Future<Output = Result<Job<GenerationSet>>>,
 ) -> Result<Job<GenerationSet>> {
     let job = job.await?;
-    let path = job.path;
+    let path = job.path();
     tracing::Span::current().record("path", path.to_str());
 
-    let keep_since = job.keep_since;
-    let keep_at_least = job.keep_at_least;
+    let keep_since = job.keep_since();
+    let keep_at_least = job.keep_at_least();
 
-    let to_delete = job.data.generations_to_delete(keep_at_least, keep_since);
+    let to_delete = job.data().generations_to_delete(keep_at_least, keep_since);
 
-    Ok(Job {
-        data: to_delete,
-        path,
-        keep_since,
-        keep_at_least,
-    })
+    Ok(job.set_data(to_delete))
 }
 
 #[tracing::instrument(skip(job), fields(path))]
 async fn run_delete(job: impl Future<Output = Result<Job<GenerationSet>>>) -> Result<Job<()>> {
     let job = job.await?;
-    let path = job.path;
+    let path = job.path();
     tracing::Span::current().record("path", path.to_str());
 
     let ids: Vec<_> = job
-        .data
+        .data()
         .iter()
         .map(|g| g.id)
         .map(|id| id.to_string())
@@ -177,7 +145,7 @@ async fn run_delete(job: impl Future<Output = Result<Job<GenerationSet>>>) -> Re
 
     let output = Command::new("nix-env")
         .arg("--profile")
-        .arg(&path)
+        .arg(path)
         .arg("--delete-generations")
         .args(&ids)
         .stderr(Stdio::piped())
@@ -196,10 +164,5 @@ async fn run_delete(job: impl Future<Output = Result<Job<GenerationSet>>>) -> Re
 
     tracing::info!(?path, ?ids, "deleted generations");
 
-    Ok(Job {
-        data: (),
-        path,
-        keep_since: job.keep_since,
-        keep_at_least: job.keep_at_least,
-    })
+    Ok(job.set_data(()))
 }
