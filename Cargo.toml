@@ -25,4 +25,4 @@ features = ["macros", "process", "rt-multi-thread", "tracing"]
 
 [dev-dependencies]
 proptest = "1.2.0"
-rstest = "0.18.1"
+rstest = "0.18.2"
