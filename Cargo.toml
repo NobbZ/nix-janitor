@@ -20,7 +20,7 @@ tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
 
 [dependencies.tokio]
-version = "1.31.0"
+version = "1.32.0"
 features = ["macros", "process", "rt-multi-thread", "tracing"]
 
 [dev-dependencies]
