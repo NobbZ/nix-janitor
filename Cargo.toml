@@ -9,7 +9,7 @@ edition = "2021"
 name = "janitor"
 
 [dependencies]
-chrono = "0.4.30"
+chrono = "0.4.31"
 color-eyre = "0.6.2"
 eyre = "0.6.8"
 futures = "0.3.28"
