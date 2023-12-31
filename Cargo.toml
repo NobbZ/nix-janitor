@@ -11,7 +11,7 @@ name = "janitor"
 [dependencies]
 chrono = "0.4.31"
 color-eyre = "0.6.2"
-eyre = "0.6.9"
+eyre = "0.6.11"
 futures = "0.3.30"
 is-root = "0.1.3"
 lazy_static = "1.4.0"
