@@ -18,7 +18,7 @@
 
     perSystem = {self', pkgs, system, ...}: let
     pkgsWithOverlays = (inputs.nixpkgs.legacyPackages.${system}.extend inputs.rust-overlay.overlays.default).extend inputs.cargo2nix.overlays.default;
-    rustVersion = "1.71.0";
+    rustVersion = "1.74.0";
     rust = pkgs.rust-bin.stable.${rustVersion}.default; # .override {
 #      extensions = [
         #"rust-src"
