@@ -1,6 +1,7 @@
 use std::{env, future::Future, process::Stdio};
 
 use chrono::{prelude::*, Duration};
+use clap::{crate_authors, Parser};
 use eyre::Result;
 use futures::future::try_join_all;
 use tokio::process::Command;
@@ -10,8 +11,17 @@ use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 use janitor::{Generation, GenerationSet, Job, Profile};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const KEEP_AT_LEAST: usize = 5;
-const KEEP_DAYS: i64 = 7;
+
+#[derive(Debug, Parser)]
+#[command(version, author = crate_authors!())]
+struct Cli {
+    /// The number of days to keep generations
+    #[clap(long, short = 'd', default_value = "7")]
+    keep_days: i64,
+    /// The minimum number of generations to keep
+    #[clap(long, short = 'l', default_value = "5")]
+    keep_at_least: usize,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,16 +31,18 @@ async fn main() -> Result<()> {
         .with_max_level(Level::TRACE)
         .init();
 
+    let args = Cli::parse();
+
     let profile_paths = Profile::all();
 
     // Configure thresholds and "print welcome"
     let now = Utc::now().naive_utc();
-    let keep_since = now - Duration::days(KEEP_DAYS);
-    let keep_at_least = KEEP_AT_LEAST;
+    let keep_since = now - Duration::days(args.keep_days);
+    let keep_at_least = args.keep_at_least;
     tracing::info!(
         start_time = %now,
         %keep_since,
-        keep_at_least = KEEP_AT_LEAST,
+        keep_at_least = args.keep_at_least,
         profiles = ?profile_paths,
         version = VERSION,
         "Starting janitor"
