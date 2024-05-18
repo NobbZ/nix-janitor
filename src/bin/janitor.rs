@@ -21,17 +21,27 @@ struct Cli {
     /// The minimum number of generations to keep
     #[clap(long, short = 'l', default_value = "5")]
     keep_at_least: usize,
+
+    /// Enable verbose output
+    #[clap(long, short = 'v')]
+    verbose: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let args = Cli::parse();
+
+    let level = if args.verbose {
+        Level::TRACE
+    } else {
+        Level::INFO
+    };
+
     // Configure and initialize logging
     FmtSubscriber::builder()
         .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-        .with_max_level(Level::TRACE)
+        .with_max_level(level)
         .init();
-
-    let args = Cli::parse();
 
     let profile_paths = Profile::all();
 
