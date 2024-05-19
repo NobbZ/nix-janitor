@@ -48,19 +48,19 @@ repos:
       #   pass_filenames: false
       #   entry: cargo deny check
 
-      # - id: tests
-      #   name: Run tests
-      #   language: system
-      #   files: ".*\\.rs"
-      #   pass_filenames: false
-      #   entry: cargo nextest run
+      - id: tests
+        name: Run tests
+        language: system
+        files: ".*\\.rs"
+        pass_filenames: false
+        entry: cargo nextest run
 
-      # - id: doc-tests
-      #   name: Run doctests
-      #   language: system
-      #   files: ".*\\.rs"
-      #   pass_filenames: false
-      #   entry: cargo test --doc
+      - id: doc-tests
+        name: Run doctests
+        language: system
+        files: ".*\\.rs"
+        pass_filenames: false
+        entry: cargo test --doc
 
       # - id: clippy
       #   name: Clippy
