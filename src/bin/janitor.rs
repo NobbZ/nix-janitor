@@ -1,7 +1,7 @@
 use std::{env, future::Future, process::Stdio};
 
 use chrono::{prelude::*, Duration};
-use clap::{crate_authors, Parser};
+use clap::{crate_authors, ArgAction, Parser};
 use eyre::Result;
 use futures::future::try_join_all;
 use tokio::process::Command;
@@ -22,26 +22,34 @@ struct Cli {
     #[clap(long, short = 'l', default_value = "5")]
     keep_at_least: usize,
 
-    /// Enable verbose output
-    #[clap(long, short = 'v')]
-    verbose: bool,
+    /// Increase verbosity (up to three times)
+    #[clap(long, short = 'v', action = ArgAction::Count)]
+    verbose: u8,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Cli::parse();
 
-    let level = if args.verbose {
-        Level::TRACE
-    } else {
-        Level::INFO
+    let (level, span_events) = match args.verbose {
+        0 => (Level::INFO, FmtSpan::NONE),
+        1 => (Level::DEBUG, FmtSpan::NONE),
+        2 => (Level::TRACE, FmtSpan::NONE),
+        _ => (Level::TRACE, FmtSpan::ENTER | FmtSpan::EXIT),
     };
 
     // Configure and initialize logging
     FmtSubscriber::builder()
-        .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
+        .with_span_events(span_events)
         .with_max_level(level)
         .init();
+
+    if args.verbose > 3 {
+        tracing::warn!(
+            verbosity = args.verbose,
+            "Verbosity above 3 does not change anything"
+        );
+    }
 
     let profile_paths = Profile::all();
 
