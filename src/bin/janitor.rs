@@ -1,6 +1,7 @@
 use std::{env, future::Future, process::Stdio};
 
 use chrono::{prelude::*, Duration};
+use clap::{crate_authors, ArgAction, Parser};
 use eyre::Result;
 use futures::future::try_join_all;
 use tokio::process::Command;
@@ -10,27 +11,62 @@ use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 use janitor::{Generation, GenerationSet, Job, Profile};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const KEEP_AT_LEAST: usize = 5;
-const KEEP_DAYS: i64 = 7;
+
+#[derive(Debug, Parser)]
+#[command(version, author = crate_authors!())]
+struct Cli {
+    /// The number of days to keep generations
+    #[clap(long, short = 'd', default_value = "7")]
+    keep_days: i64,
+    /// The minimum number of generations to keep
+    #[clap(long, short = 'l', default_value = "5")]
+    keep_at_least: usize,
+
+    /// Increase verbosity (up to three times)
+    #[clap(long = "verbose", short = 'v', action = ArgAction::Count, conflicts_with = "quiet")]
+    verbosity: u8,
+
+    /// Only log warnings and errors
+    #[clap(long, short = 'q', conflicts_with = "verbosity")]
+    quiet: bool,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let args = Cli::parse();
+
+    let (level, span_events) = match (args.quiet, args.verbosity) {
+        (true, 0) => (Level::WARN, FmtSpan::NONE),
+        (false, 0) => (Level::INFO, FmtSpan::NONE),
+        (false, 1) => (Level::DEBUG, FmtSpan::NONE),
+        (false, 2) => (Level::TRACE, FmtSpan::NONE),
+        (false, _) => (Level::TRACE, FmtSpan::ENTER | FmtSpan::EXIT),
+        (true, _) => unreachable!("--quiet and --verbose are mutually exclusive"),
+    };
+
     // Configure and initialize logging
     FmtSubscriber::builder()
-        .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-        .with_max_level(Level::TRACE)
+        .with_span_events(span_events)
+        .with_max_level(level)
         .init();
+
+    if args.verbosity > 3 {
+        tracing::warn!(
+            verbosity = args.verbosity,
+            "Verbosity above 3 does not change anything"
+        );
+    }
 
     let profile_paths = Profile::all();
 
     // Configure thresholds and "print welcome"
     let now = Utc::now().naive_utc();
-    let keep_since = now - Duration::days(KEEP_DAYS);
-    let keep_at_least = KEEP_AT_LEAST;
+    let keep_since = now - Duration::days(args.keep_days);
+    let keep_at_least = args.keep_at_least;
     tracing::info!(
         start_time = %now,
         %keep_since,
-        keep_at_least = KEEP_AT_LEAST,
+        keep_at_least = args.keep_at_least,
         profiles = ?profile_paths,
         version = VERSION,
         "Starting janitor"
