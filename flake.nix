@@ -6,7 +6,7 @@
 
     parts.url = "github:hercules-ci/flake-parts";
 
-    cargo2nix.url = "github:cargo2nix/cargo2nix";
+    cargo2nix.url = "github:cargo2nix/cargo2nix?ref=release-0.12";
     cargo2nix.inputs.nixpkgs.follows = "nixpkgs";
     cargo2nix.inputs.rust-overlay.follows = "rust-overlay";
   };
