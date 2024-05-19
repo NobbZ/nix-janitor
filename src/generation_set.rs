@@ -21,7 +21,7 @@ impl GenerationSet {
     /// the highest ids are first.
     ///
     /// If `n` is greater than or equal to the number of generations in this set,
-    /// a clone of this entire set is returned.  
+    /// a clone of this entire set is returned.
     ///
     /// # Arguments
     ///
@@ -71,7 +71,7 @@ impl GenerationSet {
     /// # Examples
     ///
     /// ```
-    /// use chrono::NaiveDateTime;  
+    /// use chrono::NaiveDateTime;
     /// use janitor::{Generation, GenerationSet};
     ///
     /// let date1 = NaiveDateTime::parse_from_str("2020-01-01 00:00", "%Y-%m-%d %H:%M").unwrap();
@@ -121,7 +121,7 @@ impl GenerationSet {
     /// ```
     /// use chrono::NaiveDateTime;
     /// use janitor::{Generation, GenerationSet};
-    ///  
+    ///
     /// let date1 = NaiveDateTime::parse_from_str("2020-01-01 00:00", "%Y-%m-%d %H:%M").unwrap();
     /// let date2 = NaiveDateTime::parse_from_str("2020-02-01 00:00", "%Y-%m-%d %H:%M").unwrap();
     /// let date3 = NaiveDateTime::parse_from_str("2020-03-01 00:00", "%Y-%m-%d %H:%M").unwrap();
@@ -241,26 +241,26 @@ mod test {
         };
     }
 
-    const INPUT_WITH_CURRENT: &str = r#" 661   2023-06-01 08:10:47   
-    662   2023-06-05 21:35:55   
-    663   2023-06-06 13:17:20   
-    664   2023-06-06 18:29:49   
-    665   2023-06-07 07:57:08   
-    666   2023-06-08 07:42:25   
-    667   2023-06-13 22:13:13   
-    668   2023-06-14 09:03:01   
-    669   2023-06-15 12:21:00   
-    670   2023-06-16 09:59:25   
-    671   2023-06-19 18:54:32   
-    672   2023-06-20 07:09:24   
-    673   2023-07-03 08:56:50   
-    674   2023-07-05 18:26:11   
-    675   2023-07-10 08:56:27   
-    676   2023-07-12 23:32:24   
-    677   2023-07-13 12:55:34   
-    678   2023-07-14 11:46:59   
-    679   2023-07-15 10:32:58   
-    680   2023-07-15 22:40:41   
+    const INPUT_WITH_CURRENT: &str = r#" 661   2023-06-01 08:10:47
+    662   2023-06-05 21:35:55
+    663   2023-06-06 13:17:20
+    664   2023-06-06 18:29:49
+    665   2023-06-07 07:57:08
+    666   2023-06-08 07:42:25
+    667   2023-06-13 22:13:13
+    668   2023-06-14 09:03:01
+    669   2023-06-15 12:21:00
+    670   2023-06-16 09:59:25
+    671   2023-06-19 18:54:32
+    672   2023-06-20 07:09:24
+    673   2023-07-03 08:56:50
+    674   2023-07-05 18:26:11
+    675   2023-07-10 08:56:27
+    676   2023-07-12 23:32:24
+    677   2023-07-13 12:55:34
+    678   2023-07-14 11:46:59
+    679   2023-07-15 10:32:58
+    680   2023-07-15 22:40:41
     681   2023-07-16 11:35:46   (current)"#;
 
     #[fixture]
