@@ -18,16 +18,8 @@
 
     perSystem = {self', pkgs, system, ...}: let
     pkgsWithOverlays = (inputs.nixpkgs.legacyPackages.${system}.extend inputs.rust-overlay.overlays.default).extend inputs.cargo2nix.overlays.default;
-    rustVersion = "1.74.0";
-    rust = pkgs.rust-bin.stable.${rustVersion}.default; # .override {
-#      extensions = [
-        #"rust-src"
-        # "rust-analysis"
-        #"rust-analyzer"
-        #"rustfmt"
-        #"clippy"
-     # ];
-    #};
+    rustVersion = "1.78.0";
+    rust = pkgs.rust-bin.stable.${rustVersion}.default;
     in {
       _module.args.pkgs = pkgsWithOverlays;
 
