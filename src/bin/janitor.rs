@@ -23,19 +23,25 @@ struct Cli {
     keep_at_least: usize,
 
     /// Increase verbosity (up to three times)
-    #[clap(long = "verbose", short = 'v', action = ArgAction::Count)]
+    #[clap(long = "verbose", short = 'v', action = ArgAction::Count, conflicts_with = "quiet")]
     verbosity: u8,
+
+    /// Only log warnings and errors
+    #[clap(long, short = 'q', conflicts_with = "verbosity")]
+    quiet: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Cli::parse();
 
-    let (level, span_events) = match args.verbosity {
-        0 => (Level::INFO, FmtSpan::NONE),
-        1 => (Level::DEBUG, FmtSpan::NONE),
-        2 => (Level::TRACE, FmtSpan::NONE),
-        _ => (Level::TRACE, FmtSpan::ENTER | FmtSpan::EXIT),
+    let (level, span_events) = match (args.quiet, args.verbosity) {
+        (true, 0) => (Level::WARN, FmtSpan::NONE),
+        (false, 0) => (Level::INFO, FmtSpan::NONE),
+        (false, 1) => (Level::DEBUG, FmtSpan::NONE),
+        (false, 2) => (Level::TRACE, FmtSpan::NONE),
+        (false, _) => (Level::TRACE, FmtSpan::ENTER | FmtSpan::EXIT),
+        (true, _) => unreachable!("--quiet and --verbose are mutually exclusive"),
     };
 
     // Configure and initialize logging
