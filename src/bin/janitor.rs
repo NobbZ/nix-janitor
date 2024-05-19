@@ -23,15 +23,15 @@ struct Cli {
     keep_at_least: usize,
 
     /// Increase verbosity (up to three times)
-    #[clap(long, short = 'v', action = ArgAction::Count)]
-    verbose: u8,
+    #[clap(long = "verbose", short = 'v', action = ArgAction::Count)]
+    verbosity: u8,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Cli::parse();
 
-    let (level, span_events) = match args.verbose {
+    let (level, span_events) = match args.verbosity {
         0 => (Level::INFO, FmtSpan::NONE),
         1 => (Level::DEBUG, FmtSpan::NONE),
         2 => (Level::TRACE, FmtSpan::NONE),
@@ -44,9 +44,9 @@ async fn main() -> Result<()> {
         .with_max_level(level)
         .init();
 
-    if args.verbose > 3 {
+    if args.verbosity > 3 {
         tracing::warn!(
-            verbosity = args.verbose,
+            verbosity = args.verbosity,
             "Verbosity above 3 does not change anything"
         );
     }
