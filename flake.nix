@@ -16,16 +16,14 @@
       systems = ["x86_64-linux" "aarch64-linux"];
 
       perSystem = {
-        self',
+        self',  inputs',
         pkgs,
         system,
         ...
       }: let
         pkgsWithOverlays = (inputs.nixpkgs.legacyPackages.${system}.extend inputs.rust-overlay.overlays.default).extend inputs.cargo2nix.overlays.default;
-        rustVersion = "1.78.0";
-        rust = pkgs.rust-bin.stable.${rustVersion}.default.override {
-          # extensions = [ "rust-src" ];
-        };
+        rustVersion = "1.75.0";
+        rust = pkgs.rust-bin.stable.${rustVersion}.default;
       in {
         _module.args.pkgs = pkgsWithOverlays;
 
@@ -54,6 +52,7 @@
             inherit (pkgs) cargo-nextest cargo-audit cargo-deny cargo-tarpaulin rust-analyzer;
             inherit (pkgs) nil;
             inherit (self'.legacyPackages.helpers) testrunner;
+            inherit (inputs'.cargo2nix.packages) cargo2nix;
             inherit rust;
           };
 
