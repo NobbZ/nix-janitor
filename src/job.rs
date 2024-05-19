@@ -169,7 +169,7 @@ mod test {
 
         #[test]
         fn keep_since_remains_unchanged(timestamp in 0..100_000_000i64) {
-            let date = NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap();
+            let date = DateTime::from_timestamp(timestamp, 0).unwrap().naive_utc();
             let job = super::Job::new("/", date, 0, ());
             prop_assert_eq!(job.keep_since(), date);
         }
@@ -194,7 +194,7 @@ mod test {
             init_data in "[a-z]+",
             new_data in 0..100_000_000usize,
         ) {
-            let date = NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap();
+            let date = DateTime::from_timestamp(timestamp, 0).unwrap().naive_utc();
             let job = super::Job::new(path, date, min, init_data.clone());
             let updated = job.set_data(new_data);
             prop_assert_eq!(updated.path(), job.path());
