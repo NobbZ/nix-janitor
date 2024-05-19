@@ -27,11 +27,12 @@ repos:
         entry: cargo fmt --check
         pass_filenames: false
 
-      # - id: alejandra
-      #   name: Alejandra
-      #   language: system
-      #   files: ".*\\.nix$"
-      #   entry: nix fmt -- --check
+      - id: alejandra
+        name: Alejandra
+        language: system
+        files: ".*\\.nix$"
+        exclude: "^Cargo.nix$"
+        entry: nix fmt -- --check
 
       # - id: cargo-audit
       #   name: Cargo Audit

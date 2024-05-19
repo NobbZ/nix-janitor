@@ -16,7 +16,8 @@
       systems = ["x86_64-linux" "aarch64-linux"];
 
       perSystem = {
-        self',  inputs',
+        self',
+        inputs',
         pkgs,
         system,
         ...
