@@ -7,7 +7,7 @@ repos:
       - id: trailing-whitespace
         exclude: "^Cargo.nix$"
       - id: end-of-file-fixer
-    #   - id: check-yaml
+      - id: check-yaml
     #   - id: check-toml
     #   - id: check-added-large-files
     #   - id: check-merge-conflict
