@@ -1,5 +1,6 @@
 mod generation;
 mod generation_set;
+pub mod interface;
 mod job;
 mod profiles;
 mod user;
