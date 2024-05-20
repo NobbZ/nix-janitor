@@ -1,7 +1,4 @@
-use std::{
-    env,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use eyre::Result;
 use uzers::UsersCache;
@@ -73,21 +70,11 @@ impl AsRef<Path> for Profile {
 }
 
 fn context(s: &str) -> Result<Option<String>> {
-    match s {
-        "USER" => Ok(get_username()),
-        v => Err(eyre::eyre!("unknown variable: {v}")),
-    }
-}
-
-fn get_username() -> Option<String> {
     let mut users = UsersCache::new();
 
-    if user::is_root(&mut users) {
-        tracing::debug!("running as root, using SUDO_USER");
-        env::var("SUDO_USER").ok()
-    } else {
-        tracing::debug!("running regular user, using USER");
-        env::var("USER").ok()
+    match s {
+        "USER" => Ok(user::get_real_username(&mut users)),
+        v => Err(eyre::eyre!("unknown variable: {v}")),
     }
 }
 
