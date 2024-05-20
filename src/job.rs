@@ -22,9 +22,9 @@ impl<T> Job<T> {
     ///
     /// # Arguments
     ///
-    /// * `path` - The path to the profile to clean up  
+    /// * `path` - The path to the profile to clean up
     /// * `keep_since` - The cutoff date for keeping generations
-    /// * `keep_at_least` - The minimum number of generations to keep  
+    /// * `keep_at_least` - The minimum number of generations to keep
     /// * `data` - The data for this job
     ///
     /// # Examples
@@ -63,7 +63,7 @@ impl<T> Job<T> {
     /// use std::path::PathBuf;
     /// use janitor::Job;
     ///
-    /// let job = Job::new(PathBuf::new(), Default::default(), 0, ());  
+    /// let job = Job::new(PathBuf::new(), Default::default(), 0, ());
     /// assert_eq!(job.path(), &PathBuf::new());
     /// ```
     pub fn path(&self) -> &PathBuf {
@@ -130,7 +130,7 @@ impl<T> Job<T> {
     /// * `data` - The new data to assign to the Job. This can be any type `U`.
     ///
     /// # Returns
-    ///  
+    ///
     /// A new `Job<U>` instance with the same configuration but the new `data` value.
     ///
     /// # Examples

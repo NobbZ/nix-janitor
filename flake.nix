@@ -16,7 +16,8 @@
       systems = ["x86_64-linux" "aarch64-linux"];
 
       perSystem = {
-        self',  inputs',
+        self',
+        inputs',
         pkgs,
         system,
         ...
@@ -50,7 +51,7 @@
         devShells.default = pkgs.mkShell {
           packages = builtins.attrValues {
             inherit (pkgs) cargo-nextest cargo-audit cargo-deny cargo-tarpaulin rust-analyzer;
-            inherit (pkgs) nil;
+            inherit (pkgs) nil pre-commit;
             inherit (self'.legacyPackages.helpers) testrunner;
             inherit (inputs'.cargo2nix.packages) cargo2nix;
             inherit rust;

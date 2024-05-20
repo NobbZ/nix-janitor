@@ -1,0 +1,70 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: "^Cargo.nix$"
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: forbid-submodules
+
+  ## Add back later when there is time to properly configure it
+  # - repo: https://github.com/fsfe/reuse-tool
+  #   rev: v1.1.2
+  #   hooks:
+  #     - id: reuse
+
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: Cargo Format
+        language: system
+        files: ".*\\.rs$"
+        entry: cargo fmt --check
+        pass_filenames: false
+
+      - id: alejandra
+        name: Alejandra
+        language: system
+        files: ".*\\.nix$"
+        exclude: "^Cargo.nix$"
+        entry: nix fmt -- --check
+
+      - id: cargo-audit
+        name: Cargo Audit
+        language: system
+        always_run: true
+        pass_filenames: false
+        entry: cargo audit
+
+      - id: cargo-deny
+        name: Cargo Deny
+        language: system
+        always_run: true
+        pass_filenames: false
+        entry: cargo deny check bans licenses sources
+
+      - id: tests
+        name: Run tests
+        language: system
+        files: ".*\\.rs"
+        pass_filenames: false
+        entry: cargo nextest run
+
+      - id: doc-tests
+        name: Run doctests
+        language: system
+        files: ".*\\.rs"
+        pass_filenames: false
+        entry: cargo test --doc
+
+      - id: clippy
+        name: Clippy
+        language: system
+        files: ".*\\.rs"
+        pass_filenames: false
+        entry: cargo clippy --all-targets --all-features -- -D warnings
