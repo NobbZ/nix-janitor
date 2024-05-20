@@ -22,6 +22,10 @@ struct Cli {
     #[clap(long, short = 'l', default_value = "5")]
     keep_at_least: usize,
 
+    /// Delete by age only (still keeps at least 1 generation, regardless of age)
+    #[clap(long, short = 'a', conflicts_with = "keep_at_least")]
+    by_age_only: bool,
+
     /// Increase verbosity (up to three times)
     #[clap(long = "verbose", short = 'v', action = ArgAction::Count, conflicts_with = "quiet")]
     verbosity: u8,
@@ -62,7 +66,7 @@ async fn main() -> Result<()> {
     // Configure thresholds and "print welcome"
     let now = Utc::now().naive_utc();
     let keep_since = now - Duration::days(args.keep_days);
-    let keep_at_least = args.keep_at_least;
+    let keep_at_least = optional(!args.by_age_only, args.keep_at_least);
     tracing::info!(
         start_time = %now,
         %keep_since,
@@ -75,7 +79,7 @@ async fn main() -> Result<()> {
     try_join_all(
         profile_paths
             .iter()
-            .map(|path| Job::new(path, keep_since, keep_at_least, ()))
+            .map(|path| Job::new(path, keep_since, keep_at_least.unwrap_or(1), ()))
             .map(get_generations)
             .map(get_to_delete)
             .map(run_delete)
@@ -167,4 +171,11 @@ async fn run_delete(job: impl Future<Output = Result<Job<GenerationSet>>>) -> Re
     tracing::info!(?path, ?ids, "deleted generations");
 
     Ok(job.set_data(()))
+}
+
+fn optional<T>(condition: bool, value: T) -> Option<T> {
+    match condition {
+        true => Some(value),
+        false => None,
+    }
 }
