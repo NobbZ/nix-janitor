@@ -1,57 +1,25 @@
 use std::{env, future::Future, process::Stdio};
 
 use chrono::{prelude::*, Duration};
-use clap::{crate_authors, ArgAction, Parser};
+use clap::Parser;
 use eyre::Result;
 use futures::future::try_join_all;
 use tokio::process::Command;
-use tracing::{Instrument, Level};
-use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
+use tracing::Instrument;
+use tracing_subscriber::FmtSubscriber;
 
-use janitor::{Generation, GenerationSet, Job, Profile};
+use janitor::{interface::NJParser, Generation, GenerationSet, Job, Profile};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Debug, Parser)]
-#[command(version, author = crate_authors!())]
-struct Cli {
-    /// The number of days to keep generations
-    #[clap(long, short = 'd', default_value = "7")]
-    keep_days: i64,
-    /// The minimum number of generations to keep
-    #[clap(long, short = 'l', default_value = "5")]
-    keep_at_least: usize,
-
-    /// Delete by age only (still keeps at least 1 generation, regardless of age)
-    #[clap(long, short = 'a', conflicts_with = "keep_at_least")]
-    by_age_only: bool,
-
-    /// Increase verbosity (up to three times)
-    #[clap(long = "verbose", short = 'v', action = ArgAction::Count, conflicts_with = "quiet")]
-    verbosity: u8,
-
-    /// Only log warnings and errors
-    #[clap(long, short = 'q', conflicts_with = "verbosity")]
-    quiet: bool,
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = Cli::parse();
-
-    let (level, span_events) = match (args.quiet, args.verbosity) {
-        (true, 0) => (Level::WARN, FmtSpan::NONE),
-        (false, 0) => (Level::INFO, FmtSpan::NONE),
-        (false, 1) => (Level::DEBUG, FmtSpan::NONE),
-        (false, 2) => (Level::TRACE, FmtSpan::NONE),
-        (false, _) => (Level::TRACE, FmtSpan::ENTER | FmtSpan::EXIT),
-        (true, _) => unreachable!("--quiet and --verbose are mutually exclusive"),
-    };
+    let args = <NJParser as Parser>::parse();
 
     // Configure and initialize logging
     FmtSubscriber::builder()
-        .with_span_events(span_events)
-        .with_max_level(level)
+        .with_span_events((&args).into())
+        .with_max_level(&args)
         .init();
 
     if args.verbosity > 3 {
