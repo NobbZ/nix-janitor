@@ -4,6 +4,7 @@ use std::{
 };
 
 use eyre::Result;
+use uzers::UsersCache;
 
 use crate::user;
 
@@ -43,12 +44,14 @@ impl Profile {
     /// let profiles = Profile::all();
     /// ```
     pub fn all() -> Vec<Self> {
+        let mut users = UsersCache::new();
+
         let mut paths = vec![
             "/nix/var/nix/profiles/per-user/$USER/profile",
             "/home/$USER/.local/state/nix/profiles/home-manager",
         ];
 
-        if user::is_root() {
+        if user::is_root(&mut users) {
             paths.push("/nix/var/nix/profiles/system");
         }
 
@@ -77,7 +80,9 @@ fn context(s: &str) -> Result<Option<String>> {
 }
 
 fn get_username() -> Option<String> {
-    if user::is_root() {
+    let mut users = UsersCache::new();
+
+    if user::is_root(&mut users) {
         tracing::debug!("running as root, using SUDO_USER");
         env::var("SUDO_USER").ok()
     } else {
