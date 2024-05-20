@@ -5,6 +5,8 @@ use std::{
 
 use eyre::Result;
 
+use crate::user;
+
 /// Represents a Nix profile path.
 ///
 /// This wraps a [std::path::PathBuf] to provide a named type.
@@ -46,7 +48,7 @@ impl Profile {
             "/home/$USER/.local/state/nix/profiles/home-manager",
         ];
 
-        if is_root::is_root() {
+        if user::is_root() {
             paths.push("/nix/var/nix/profiles/system");
         }
 
@@ -75,7 +77,7 @@ fn context(s: &str) -> Result<Option<String>> {
 }
 
 fn get_username() -> Option<String> {
-    if is_root::is_root() {
+    if user::is_root() {
         tracing::debug!("running as root, using SUDO_USER");
         env::var("SUDO_USER").ok()
     } else {
