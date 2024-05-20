@@ -68,3 +68,10 @@ repos:
         files: ".*\\.rs"
         pass_filenames: false
         entry: cargo clippy --all-targets --all-features -- -D warnings
+
+      - id: cargo2nix
+        name: Cargo2Nix
+        language: system
+        files: "Cargo.toml|Cargo.lock"
+        pass_filenames: false
+        entry: cargo2nix --overwrite
