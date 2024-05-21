@@ -8,7 +8,7 @@ use tokio::process::Command;
 use tracing::Instrument;
 use tracing_subscriber::FmtSubscriber;
 
-use janitor::{interface::NJParser, Generation, GenerationSet, Job, Profile};
+use janitor::{interface::NJParser, option, Generation, GenerationSet, Job, Profile};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
     // Configure thresholds and "print welcome"
     let now = Utc::now().naive_utc();
     let keep_since = now - Duration::days(args.keep_days);
-    let keep_at_least = optional(!args.by_age_only, args.keep_at_least);
+    let keep_at_least = option::optional(!args.by_age_only, args.keep_at_least);
     tracing::info!(
         start_time = %now,
         %keep_since,
@@ -139,11 +139,4 @@ async fn run_delete(job: impl Future<Output = Result<Job<GenerationSet>>>) -> Re
     tracing::info!(?path, ?ids, "deleted generations");
 
     Ok(job.set_data(()))
-}
-
-fn optional<T>(condition: bool, value: T) -> Option<T> {
-    match condition {
-        true => Some(value),
-        false => None,
-    }
 }
