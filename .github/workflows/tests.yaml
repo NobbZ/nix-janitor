@@ -26,7 +26,7 @@ jobs:
       - name: Build and archive tests
         run: cargo nextest archive --archive-file nextest-archive.tar.zst
       - name: Upload archive to workflow
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: nextest-archive-${{ matrix.toolchain }}
           path: nextest-archive.tar.zst
@@ -53,7 +53,7 @@ jobs:
       - name: Install nextest
         uses: taiki-e/install-action@nextest
       - name: Download archive
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: nextest-archive-${{ matrix.toolchain }}
       - name: Run tests
