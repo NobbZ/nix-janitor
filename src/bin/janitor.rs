@@ -1,3 +1,4 @@
+use std::io;
 use std::{env, future::Future, process::Stdio};
 
 use chrono::{prelude::*, Duration};
@@ -6,6 +7,7 @@ use eyre::{OptionExt, Result};
 use futures::future::try_join_all;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
+use tokio::sync::mpsc;
 use tracing::Instrument;
 use tracing_subscriber::FmtSubscriber;
 
@@ -88,9 +90,33 @@ async fn perform_gc(verbose: bool) -> Result<()> {
 
     // Ensure child runs in the tokio runtime and is able to proceed, while we
     // await its output
-    let status_handle = tokio::spawn(async move { child.wait().await });
+    let (tx, mut rx) = mpsc::channel(1);
+    tokio::spawn(async move {
+        let status = child.wait().await;
+        tx.send(status).await.unwrap();
+    });
 
-    while let Some(line) = stderr_reader.next_line().await? {
+    let status = {
+        loop {
+            tokio::select! {
+                maybe_line = stderr_reader.next_line() => process_stderr_line(maybe_line)?,
+                maybe_line = stdout_reader.next_line() => process_stdout_line(maybe_line)?,
+                Some(status) = rx.recv() => { break status?; },
+            }
+        }
+    };
+
+    if !status.success() {
+        tracing::warn!(code = status.code(), "nix-store --gc failed");
+    };
+
+    tracing::info!("nix-store --gc completed successfully");
+
+    Ok(())
+}
+
+fn process_stderr_line(maybe_line: Result<Option<String>, io::Error>) -> Result<()> {
+    if let Some(line) = maybe_line? {
         if line == "waiting for the big garbage collector lock..." {
             tracing::debug!("waiting for the big garbage collector lock");
         } else if line == "finding garbage collector roots..." {
@@ -136,29 +162,25 @@ async fn perform_gc(verbose: bool) -> Result<()> {
                 .unwrap();
             tracing::debug!(%path, "deleting hardlink");
         } else {
-            tracing::warn!(%line, "unrecognized output from nix-store --gc");
-        }
-    }
+            tracing::warn!(stderr = %line, "unrecognized output from nix-store --gc");
+        };
+    };
 
-    while let Some(line) = stdout_reader.next_line().await? {
+    Ok(())
+}
+
+fn process_stdout_line(maybe_line: Result<Option<String>, io::Error>) -> Result<()> {
+    if let Some(line) = maybe_line? {
         match line.split_whitespace().collect::<Vec<_>>().as_slice() {
             &[deleted, "store", "paths", "deleted,", size, unit, "freed"] => {
                 let freed = format!("{} {}", size, unit);
                 tracing::info!(%deleted, %freed, "completed collection");
             }
             _ => {
-                tracing::warn!(%line, "unrecognized output from nix-store --gc");
+                tracing::warn!(stdout = %line, "unrecognized output from nix-store --gc");
             }
         }
-    }
-
-    let status = status_handle.await??;
-
-    if !status.success() {
-        tracing::warn!(code = status.code(), "nix-store --gc failed");
     };
-
-    tracing::info!("nix-store --gc completed successfully");
 
     Ok(())
 }
