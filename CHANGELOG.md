@@ -10,9 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - ([#38], [#45]) CLI flag for deleting only by age, and ignore count
+- ([#41], [#53]) Perform an actual garbage collection (on request)
 
 [#38]: https://github.com/NobbZ/nix-janitor/issues/38
-[#45]: https://github.com/NobbZ/nix-janitor/issues/45
+[#41]: https://github.com/NobbZ/nix-janitor/issues/41
+[#45]: https://github.com/NobbZ/nix-janitor/pull/45
+[#53]: https://github.com/NobbZ/nix-janitor/pull/53
 
 ### Changed
 
