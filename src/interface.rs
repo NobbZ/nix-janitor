@@ -24,6 +24,10 @@ pub struct NJParser {
     /// Only log warnings and errors
     #[clap(long, short = 'q', conflicts_with = "verbosity")]
     pub quiet: bool,
+
+    /// perform garbage collection after profile deletion
+    #[clap(long)]
+    pub gc: bool,
 }
 
 impl NJParser {
@@ -68,6 +72,7 @@ mod tests {
         assert_eq!(args.by_age_only, false);
         assert_eq!(args.verbosity, 0);
         assert_eq!(args.quiet, false);
+        assert_eq!(args.gc, false);
     }
 
     #[rstest]

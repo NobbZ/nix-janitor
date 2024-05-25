@@ -2,8 +2,9 @@ use std::{env, future::Future, process::Stdio};
 
 use chrono::{prelude::*, Duration};
 use clap::Parser;
-use eyre::Result;
+use eyre::{OptionExt, Result};
 use futures::future::try_join_all;
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tracing::Instrument;
 use tracing_subscriber::FmtSubscriber;
@@ -55,6 +56,109 @@ async fn main() -> Result<()> {
     )
     .instrument(tracing::info_span!("processing_profiles"))
     .await?;
+
+    if args.gc {
+        perform_gc(args.verbosity > 0).await?;
+    };
+
+    Ok(())
+}
+
+#[tracing::instrument]
+async fn perform_gc(verbose: bool) -> Result<()> {
+    let mut cmd = Command::new("nix-store");
+    cmd.args(["--verbose", "--gc"]);
+    cmd.stderr(Stdio::piped());
+    cmd.stdout(Stdio::piped());
+
+    let mut child = cmd.spawn()?;
+
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_eyre("chid did not have a handle to stderr")?;
+
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_eyre("child did not have a handle to stdout")?;
+
+    let mut stderr_reader = BufReader::new(stderr).lines();
+    let mut stdout_reader = BufReader::new(stdout).lines();
+
+    // Ensure child runs in the tokio runtime and is able to proceed, while we
+    // await its output
+    let status_handle = tokio::spawn(async move { child.wait().await });
+
+    while let Some(line) = stderr_reader.next_line().await? {
+        if line == "waiting for the big garbage collector lock..." {
+            tracing::debug!("waiting for the big garbage collector lock");
+        } else if line == "finding garbage collector roots..." {
+            tracing::debug!("finding garbage collector roots");
+        } else if line == "deleting garbage..." {
+            tracing::info!("start deleting garbage");
+        } else if line == "deleting unused links..." {
+            tracing::info!("deleting unused links");
+        } else if line.starts_with("note: currently hard linking saves") {
+            let saved = line
+                .strip_prefix("note: currently hard linking saves ")
+                .unwrap();
+            tracing::info!(%saved, "hard linking saves");
+        } else if line.starts_with("deleting '") {
+            let path = line
+                .strip_prefix("deleting '")
+                .unwrap()
+                .strip_suffix('\'')
+                .unwrap();
+            tracing::debug!(%path, "deleting path");
+        } else if line.starts_with("removing stale temporary roots file '") {
+            let path = line
+                .strip_prefix("removing stale temporary roots file '")
+                .unwrap()
+                .strip_suffix('\'')
+                .unwrap();
+            tracing::debug!(%path, "removing stale temporary roots file");
+        } else if line.starts_with("removing stale link from '") {
+            let line = line
+                .strip_prefix("removing stale link from '")
+                .unwrap()
+                .strip_suffix('\'')
+                .unwrap();
+            let paths = line.split("' to '").collect::<Vec<_>>();
+            let auto_root = paths[0];
+            let target = paths[1];
+            tracing::debug!(%auto_root, %target, "removing stale link");
+        } else if line.starts_with("deleting unused link '") {
+            let path = line
+                .strip_prefix("deleting unused link '")
+                .unwrap()
+                .strip_suffix('\'')
+                .unwrap();
+            tracing::debug!(%path, "deleting hardlink");
+        } else {
+            tracing::warn!(%line, "unrecognized output from nix-store --gc");
+        }
+    }
+
+    while let Some(line) = stdout_reader.next_line().await? {
+        match line.split_whitespace().collect::<Vec<_>>().as_slice() {
+            &[deleted, "store", "paths", "deleted,", size, unit, "freed"] => {
+                let freed = format!("{} {}", size, unit);
+                tracing::info!(%deleted, %freed, "completed collection");
+            }
+            _ => {
+                tracing::warn!(%line, "unrecognized output from nix-store --gc");
+            }
+        }
+    }
+
+    let status = status_handle.await??;
+
+    if !status.success() {
+        tracing::warn!(code = status.code(), "nix-store --gc failed");
+    };
+
+    tracing::info!("nix-store --gc completed successfully");
 
     Ok(())
 }
