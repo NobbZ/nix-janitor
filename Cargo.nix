@@ -1592,6 +1592,7 @@ in
       [ "rt" ]
       [ "rt-multi-thread" ]
       [ "signal-hook-registry" ]
+      [ "sync" ]
       [ "tokio-macros" ]
       [ "tracing" ]
       [ "windows-sys" ]
