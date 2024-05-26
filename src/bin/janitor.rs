@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin_include))]
+
 use std::io;
 use std::{env, future::Future, process::Stdio};
 
