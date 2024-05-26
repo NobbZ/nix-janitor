@@ -14,8 +14,22 @@ pub struct NJParser {
     pub keep_at_least: usize,
 
     /// Delete by age only (still keeps at least 1 generation, regardless of age)
-    #[clap(long, short = 'a', conflicts_with = "keep_at_least")]
+    #[clap(
+        long,
+        short = 'a',
+        conflicts_with = "keep_at_least",
+        conflicts_with = "by_count_only"
+    )]
     pub by_age_only: bool,
+
+    /// Delete by count only
+    #[clap(
+        long,
+        short = 'c',
+        conflicts_with = "keep_days",
+        conflicts_with = "by_age_only"
+    )]
+    pub by_count_only: bool,
 
     /// Increase verbosity (up to three times)
     #[clap(long = "verbose", short = 'v', action = ArgAction::Count, conflicts_with = "quiet")]
@@ -78,6 +92,8 @@ mod tests {
     #[rstest]
     #[case::age_only(vec!["janitor", "-a", "-l", "2"])]
     #[case::verbose_quiet(vec!["janitor", "-v", "-q"])]
+    #[case::count_only(vec!["janitor", "-c", "-d", "3"])]
+    #[case::count_vs_age(vec!["janitor", "-a", "-c"])]
     fn test_conflicts(#[case] args: Vec<&str>) {
         let result = NJParser::try_parse_from(args);
         dbg!(&result);
