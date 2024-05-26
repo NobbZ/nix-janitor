@@ -37,7 +37,7 @@ impl NJParser {
             (false, 0) => (Level::INFO, FmtSpan::NONE),
             (false, 1) => (Level::DEBUG, FmtSpan::NONE),
             (false, 2) => (Level::TRACE, FmtSpan::NONE),
-            (false, _) => (Level::TRACE, FmtSpan::ENTER | FmtSpan::EXIT),
+            (false, _) => (Level::TRACE, FmtSpan::NEW | FmtSpan::CLOSE),
             (true, _) => unreachable!("--quiet and --verbose are mutually exclusive"),
         }
     }
@@ -92,7 +92,7 @@ mod tests {
     #[case::quiet(vec!["janitor", "-q"], Level::WARN, FmtSpan::NONE)]
     #[case::verbose(vec!["janitor", "-v"], Level::DEBUG, FmtSpan::NONE)]
     #[case::trace(vec!["janitor", "-vv"], Level::TRACE, FmtSpan::NONE)]
-    #[case::trace_span(vec!["janitor", "-vvv"], Level::TRACE, FmtSpan::ENTER | FmtSpan::EXIT)]
+    #[case::trace_span(vec!["janitor", "-vvv"], Level::TRACE, FmtSpan::NEW | FmtSpan::CLOSE)]
     fn test_log_level_and_span(
         #[case] args: Vec<&str>,
         #[case] level: Level,
