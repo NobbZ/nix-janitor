@@ -39,8 +39,12 @@ pub struct NJParser {
     #[clap(long, short = 'q', conflicts_with = "verbosity")]
     pub quiet: bool,
 
+    /// Do a dry run (do not delete anything)
+    #[clap(long, conflicts_with = "gc")]
+    pub dry_run: bool,
+
     /// perform garbage collection after profile deletion
-    #[clap(long)]
+    #[clap(long, conflicts_with = "dry_run")]
     pub gc: bool,
 }
 
@@ -94,6 +98,7 @@ mod tests {
     #[case::verbose_quiet(vec!["janitor", "-v", "-q"])]
     #[case::count_only(vec!["janitor", "-c", "-d", "3"])]
     #[case::count_vs_age(vec!["janitor", "-a", "-c"])]
+    #[case::count_vs_age(vec!["janitor", "--gc", "--dry-run"])]
     fn test_conflicts(#[case] args: Vec<&str>) {
         let result = NJParser::try_parse_from(args);
         dbg!(&result);
