@@ -4,7 +4,8 @@ use std::io;
 use std::{env, future::Future, process::Stdio};
 
 use chrono::{prelude::*, Duration};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
+use clap_complete::generate;
 use eyre::{OptionExt, Result};
 use futures::future::try_join_all;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -20,6 +21,12 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = <NJParser as Parser>::parse();
+
+    if let Some(shell) = args.completions {
+        let mut app = <NJParser as CommandFactory>::command();
+        generate(shell, &mut app, "janitor", &mut io::stdout());
+        return Ok(());
+    }
 
     // Configure and initialize logging
     FmtSubscriber::builder()
