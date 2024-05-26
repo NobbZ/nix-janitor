@@ -35,8 +35,10 @@ _nothing_
 ### Fixed
 
 - ([#54]) Fix an issue where high verbosity resulted in the wrong spans being logged
+- ([#57]) Fix a potential issue when profile paths do not exist
 
 [#54]: https://github.com/NobbZ/nix-janitor/pull/54
+[#57]: https://github.com/NobbZ/nix-janitor/pull/57
 
 ### Security
 
