@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+_nothing_
+
+### Changed
+
+_nothing_
+
+### Deprecated
+
+_nothing_
+
+### Removed
+
+_nothing_
+
+### Fixed
+
+_nothing_
+
+### Security
+
+_nothing_
+
+## [0.3.0] - 2024-05-26
+
+### Added
+
 - ([#38], [#45]) CLI flag for deleting only by age, and ignore count
 - ([#41], [#53]) Perform an actual garbage collection (on request)
 - ([#39], [#55]) CLI flag for deleting only by count, and ignore age
