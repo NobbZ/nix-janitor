@@ -31,6 +31,34 @@ _nothing_
 
 _nothing_
 
+## [0.3.1] - 2024-05-26
+
+### Added
+
+- ([#60]) Add CLI flag for generating shell completions
+
+[#60]: https://github.com/NobbZ/nix-janitor/pull/60
+
+### Changed
+
+_nothing_
+
+### Deprecated
+
+_nothing_
+
+### Removed
+
+_nothing_
+
+### Fixed
+
+_nothing_
+
+### Security
+
+_nothing_
+
 ## [0.3.0] - 2024-05-26
 
 ### Added

@@ -1,4 +1,5 @@
 use clap::{crate_authors, ArgAction, Parser};
+use clap_complete::Shell;
 use tracing::{metadata::LevelFilter, Level};
 use tracing_subscriber::fmt::format::FmtSpan;
 
@@ -46,6 +47,10 @@ pub struct NJParser {
     /// perform garbage collection after profile deletion
     #[clap(long, conflicts_with = "dry_run")]
     pub gc: bool,
+
+    /// Generate shell completions
+    #[clap(long)]
+    pub completions: Option<Shell>,
 }
 
 impl NJParser {
