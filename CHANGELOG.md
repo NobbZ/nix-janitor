@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+_nothing_
+
+### Changed
+
+_nothing_
+
+### Deprecated
+
+_nothing_
+
+### Removed
+
+_nothing_
+
+### Fixed
+
+_nothing_
+
+### Security
+
+_nothing_
+
+## [0.3.1] - 2024-05-26
+
+### Added
+
 - ([#60]) Add CLI flag for generating shell completions
 
 [#60]: https://github.com/NobbZ/nix-janitor/pull/60
