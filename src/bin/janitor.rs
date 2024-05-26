@@ -56,7 +56,15 @@ async fn main() -> Result<()> {
     try_join_all(
         profile_paths
             .iter()
-            .map(|path| Job::new(path, keep_since, keep_at_least.unwrap_or(1), ()))
+            .map(|path| {
+                Job::new(
+                    path,
+                    keep_since,
+                    keep_at_least.unwrap_or(1),
+                    args.dry_run,
+                    (),
+                )
+            })
             .map(get_generations)
             .map(get_to_delete)
             .map(run_delete)
@@ -254,25 +262,26 @@ async fn run_delete(job: impl Future<Output = Result<Job<GenerationSet>>>) -> Re
 
     tracing::info!(?path, ?ids, "deleting generations");
 
-    let output = Command::new("nix-env")
-        .arg("--profile")
-        .arg(path)
-        .arg("--delete-generations")
-        .args(&ids)
-        .stderr(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()?
-        .wait_with_output()
-        .instrument(tracing::info_span!("delete_generations"))
-        .await?;
+    if !job.dry_run() {
+        let output = Command::new("nix-env")
+            .arg("--profile")
+            .arg(path)
+            .arg("--delete-generations")
+            .args(&ids)
+            .stderr(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()?
+            .wait_with_output()
+            .instrument(tracing::info_span!("delete_generations"))
+            .await?;
 
-    if !output.status.success() {
-        return Err(eyre::eyre!(
-            "nix-env failed: {stderr}",
-            stderr = std::str::from_utf8(output.stderr.as_ref())?
-        ));
+        if !output.status.success() {
+            return Err(eyre::eyre!(
+                "nix-env failed: {stderr}",
+                stderr = std::str::from_utf8(output.stderr.as_ref())?
+            ));
+        }
     }
-
     tracing::info!(?path, ?ids, "deleted generations");
 
     Ok(job.set_data(()))
