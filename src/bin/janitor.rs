@@ -38,7 +38,11 @@ async fn main() -> Result<()> {
 
     // Configure thresholds and "print welcome"
     let now = Utc::now().naive_utc();
-    let keep_since = now - Duration::days(args.keep_days);
+    let dur = match args.by_count_only {
+        true => Duration::zero(),
+        false => Duration::days(args.keep_days),
+    };
+    let keep_since = now - dur;
     let keep_at_least = option::optional(!args.by_age_only, args.keep_at_least);
     tracing::info!(
         start_time = %now,
