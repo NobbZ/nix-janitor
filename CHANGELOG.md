@@ -31,7 +31,9 @@ _nothing_
 
 ### Fixed
 
-_nothing_
+- ([#54]) Fix an issue where high verbosity resulted in the wrong spans being logged
+
+[#54]: https://github.com/NobbZ/nix-janitor/pull/54
 
 ### Security
 
