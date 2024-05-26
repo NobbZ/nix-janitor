@@ -8,7 +8,7 @@ use crate::generation::Generation;
 ///
 /// The generations are stored in a [BTreeSet] and kept in order by
 /// [Generation::id].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct GenerationSet {
     generations: BTreeSet<Generation>,
 }

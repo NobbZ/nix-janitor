@@ -195,6 +195,11 @@ fn process_stdout_line(maybe_line: Result<Option<String>, io::Error>) -> Result<
 async fn get_generations(job: Job<()>) -> Result<Job<GenerationSet>> {
     let path = job.path();
 
+    if !path.exists() {
+        tracing::warn!(?path, "profile does not exist, skipping");
+        return Ok(job.set_data(Default::default()));
+    }
+
     let output = Command::new("nix-env")
         .arg("--list-generations")
         .arg("--profile")
