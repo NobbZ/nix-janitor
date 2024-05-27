@@ -260,6 +260,11 @@ async fn run_delete(job: impl Future<Output = Result<Job<GenerationSet>>>) -> Re
     let path = job.path();
     tracing::Span::current().record("path", path.to_str());
 
+    if job.data().is_empty() {
+        tracing::info!("jobset empty, skipping");
+        return Ok(job.set_data(()));
+    }
+
     let ids: Vec<_> = job
         .data()
         .iter()
