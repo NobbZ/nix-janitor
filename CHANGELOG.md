@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+_nothing_
+
+### Changed
+
+_nothing_
+
+### Deprecated
+
+_nothing_
+
+### Removed
+
+_nothing_
+
+### Fixed
+
+_nothing_
+
+### Security
+
+_nothing_
+
+## [0.3.3] - 2024-11-30
+
+### Added
+
 - ([#63]) Fix an error that could happen on missing profiles
 
 [#63]: https://github.com/NobbZ/nix-janitor/pull/63
