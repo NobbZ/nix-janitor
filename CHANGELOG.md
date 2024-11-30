@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-_nothing_
+- ([#63]) Fix an error that could happen on missing profiles
+
+[#63]: https://github.com/NobbZ/nix-janitor/pull/63
 
 ### Changed
 
